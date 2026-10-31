@@ -58,6 +58,7 @@ def recommend_iso(gamma: str, required_iso: float) -> int:
 
 PICTURE_PROFILES: dict[str, dict] = {
     "A7III-Cinetone": {
+        "note": "S-Cinetone-inspired starting point, not Sony's S-Cinetone; verify on a chart",
         "slot": "PP6",
         "gamma": "Cine4",
         "black_level": -2,
@@ -112,5 +113,35 @@ PICTURE_PROFILES: dict[str, dict] = {
         "detail": -5,
         "native_iso": [100, 640],
         "exposure_target": "Standard 0.0 EV meter",
+    },
+    "A7III-Portrait-Soft": {
+        "note": "soft-contrast skin look (roadmap COL-02); starting point, verify on a chart",
+        "slot": "PP5",
+        "gamma": "Cine1",
+        "black_level": 1,
+        "black_gamma": {"range": "Wide", "level": 1},
+        "knee": {"mode": "Manual", "point_pct": 85, "slope": 1},
+        "color_mode": "Cinema",
+        "saturation": -1,
+        "color_phase": -1,
+        "color_depth": {"R": 1, "G": 0, "B": -1, "C": 0, "M": 0, "Y": 1},
+        "detail": -7,
+        "native_iso": [100, 640],
+        "exposure_target": "Skin 60-65% IRE; middle grey ~42% IRE",
+    },
+    "A7III-SLog3-Cine": {
+        "note": "Sony stock PP8 for grading; pair with a7iii_slog3_to_709_*.cube",
+        "slot": "PP8",
+        "gamma": "S-Log3",
+        "black_level": 0,
+        "black_gamma": {"range": "Middle", "level": 0},
+        "knee": {"mode": "Auto"},
+        "color_mode": "S-Gamut3.Cine",
+        "saturation": 0,
+        "color_phase": 0,
+        "color_depth": {"R": 0, "G": 0, "B": 0, "C": 0, "M": 0, "Y": 0},
+        "detail": -7,
+        "native_iso": [800, 5000],
+        "exposure_target": "Middle grey 41% IRE (+1 to +1.7 EV over meter keeps 8-bit shadows clean)",
     },
 }

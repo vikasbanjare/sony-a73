@@ -78,6 +78,7 @@ That serves the Control Desk at http://localhost:8000 against the virtual camera
 | `a7iii shutter --fps 23.976 --mains 50` | shutter-angle lock with anti-flicker |
 | `a7iii iso slog3 --need 3200` / `a7iii ei slog3 1600` | native ISOs and Cine EI offset |
 | `a7iii dof …` / `a7iii bracket …` | depth of field and focus-stack plans |
+| `a7iii luts --out luts` | FX-style LUT pack: S-Log3 / S-Log2 / HLG → Rec.709, technical / cinetone / portrait, 33 + 65 pt + DCTL |
 | `a7iii match --source … --target …` | chart CSVs → `.cube` + DCTL |
 | `a7iii offload CARD SSD_A SSD_B --proxies PROXIES` | verified copy, then proxies |
 | `a7iii nvram tweaks\|dump\|apply\|restore\|verify --sim IMAGE` | guarded NVRAM tool, rehearsed on a simulated body |
@@ -85,9 +86,9 @@ That serves the Control Desk at http://localhost:8000 against the virtual camera
 
 ## Hardware status, honestly
 
-- **PTP over USB** (`UsbTransport`) uses the same driver the simulator exercises. Three things are taken from
-  libgphoto2 or the roadmap and still need confirming on a real body: the Touch-AF property `0xD2E4` and its
-  encoding, the live-view header layout, and the property-descriptor layout. See `docs/ROADMAP_REVIEW.md`.
+- **PTP over USB** (`UsbTransport`) is confirmed on a real ILCE-7M3 (firmware 4.04): handshake, 61 property
+  codes and live view. The body does **not** report Touch-AF `0xD2E4`; property writes are still untested.
+  See `docs/CAMERA_BASELINE.md`, and `docs/FX_FEATURE_MATRIX.md` for what each FX3/FX6 feature becomes here.
 - **NVRAM:** there is no hardware Senser backend, on purpose. The safety layer is complete and tested.
 - **GyroShoe firmware** is compiled in CI against API stubs, which checks syntax and types but not
   on-device behaviour. Verify it on the board (see `firmware/gyroshoe/README.md`).

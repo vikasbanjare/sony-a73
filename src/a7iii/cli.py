@@ -85,6 +85,14 @@ def cmd_profiles(a) -> int:
     return 0
 
 
+def cmd_luts(a) -> int:
+    from .color.looks import write_lut_pack
+
+    files = write_lut_pack(a.out, sizes=tuple(a.size))
+    print(f"{len(files)} files in {a.out}: S-Log3 / S-Log2 / HLG -> Rec.709, looks technical / cinetone / portrait")
+    return 0
+
+
 def _load_patches(path: str):
     import numpy as np
 
@@ -289,6 +297,11 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("profiles", help="list or show picture-profile recipes")
     s.add_argument("name", nargs="?", choices=sorted(PICTURE_PROFILES))
     s.set_defaults(func=cmd_profiles)
+
+    s = sub.add_parser("luts", help="write the FX-style LUT pack (log/HLG -> Rec.709 looks)")
+    s.add_argument("--out", default="luts")
+    s.add_argument("--size", type=int, nargs="+", default=[33, 65], help="LUT sizes")
+    s.set_defaults(func=cmd_luts)
 
     s = sub.add_parser("match", help="chart-match two cameras into a .cube LUT + DCTL")
     s.add_argument("--source", required=True, help="CSV of source patch R,G,B (signal 0..1)")
