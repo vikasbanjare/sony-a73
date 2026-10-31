@@ -15,6 +15,20 @@ from .ptp_device import SimTransport
 from .scene import Scene, approaching_subject_scene, chart_scene, macro_scene, walking_subject_scene
 
 
+class SimClock:
+    """Clock for ``ptp.automation`` that advances the simulated camera."""
+
+    def __init__(self, camera: VirtualA7III, record: bool = True):
+        self.camera = camera
+        self.record = record
+
+    def now(self) -> float:
+        return self.camera.t
+
+    def sleep(self, seconds: float) -> None:
+        self.camera.advance(seconds, record=self.record)
+
+
 def connect_simulated(scene: Scene | None = None, **camera_kwargs):
     """Return (SonyCamera driver, VirtualA7III) wired together over SimTransport."""
     from ..ptp.session import SonyCamera
@@ -31,6 +45,7 @@ __all__ = [
     "HandheldMotion",
     "Lens",
     "Scene",
+    "SimClock",
     "SimTransport",
     "SimulatedIMU",
     "VirtualA7III",
