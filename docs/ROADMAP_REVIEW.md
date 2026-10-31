@@ -14,10 +14,10 @@ code does something different from the roadmap, it's listed here so nobody
 | §4.1: HLG formula `E' = r√E` (ARIB form, E up to 12) | BT.2100 form `E' = √(3E)` with E normalised to [0,1]; reflectance is scaled so that diffuse white encodes at 75% | The two forms are equivalent; BT.2100 is the current standard and makes 18% grey come out at ~38%. |
 | §3.3: record-limit and PAL/NTSC flags are "GREEN" toggles | Registered, but **unwritable** (no property ID) | The roadmap gives no property IDs for them. Guessing NVRAM IDs on a real camera is how bodies get bricked. Add a verified ID in a reviewed change to enable them. |
 
-## Claims that still need checking on hardware
+## Hardware findings and claims still to check
 
 - **PTP property `0xD2E4` (Touch AF position)** and its coordinate encoding are marked `verified=False` in `ptp/codes.py`. The AI-AF bridge depends on this, so run `GetExtDeviceInfo` on the body first and see if the code is listed.
-- **Live-view header layout** (§10.2): the parser deliberately finds the JPEG by its SOI/EOI markers and doesn't trust fixed offsets. The focus-frame (`0x02`) payload isn't parsed yet.
+- ~~Live-view header layout~~ **Verified on a real ILCE-7M3** over USB PC Remote. The roadmap's §10.2 layout is wrong. The real object starts with a `u32` JPEG offset and a `u32` JPEG size (e.g. 1012 / 45568), then a Sony info block, then a 1024×576 JPEG. `parse_liveview` handles both layouts. Still to do: decode the info block, which presumably holds the focus frames.
 - **Rolling-shutter readout times** (§6.1) and **dual-gain ISOs** (§2.2) are typical published figures, not per-body calibration. Measure your own camera.
 - **Senser service mode on FW 4.04** (§3): the roadmap cites Sony-PMCA-RE issues #724/#733/#744/#747, dated after mid-2026. I couldn't verify them independently. The NVRAM module only provides the safety layer and a backend interface. It doesn't contain any USB service-mode code.
 
