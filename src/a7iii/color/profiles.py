@@ -114,6 +114,23 @@ PICTURE_PROFILES: dict[str, dict] = {
         "native_iso": [100, 640],
         "exposure_target": "Standard 0.0 EV meter",
     },
+    "A7III-FX-Default": {
+        "note": "everyday 'set once' profile: richer colour, deeper reds/magentas, gentle highlights. "
+                "If skin still looks green-yellow, step Color Phase one notch at a time toward red and "
+                "compare on a face. Starting point - verify on a chart. Pair proxies with the fxdefault look.",
+        "slot": "PP1",
+        "gamma": "Cine4",
+        "black_level": 0,
+        "black_gamma": {"range": "Middle", "level": -1},
+        "knee": {"mode": "Auto"},
+        "color_mode": "Pro",
+        "saturation": 3,
+        "color_phase": 0,
+        "color_depth": {"R": 1, "G": -1, "B": 0, "C": 0, "M": 1, "Y": -1},
+        "detail": -5,
+        "native_iso": [100, 640],
+        "exposure_target": "Standard metering; skin 60-70% IRE",
+    },
     "A7III-Portrait-Soft": {
         "note": "soft-contrast skin look (roadmap COL-02); starting point, verify on a chart",
         "slot": "PP5",

@@ -93,6 +93,29 @@ def cmd_luts(a) -> int:
     return 0
 
 
+def cmd_chart_sample(a) -> int:
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    import numpy as np
+    from PIL import Image
+
+    from .color.colorchecker import sample_chart
+
+    src = Path(a.image)
+    if src.suffix.lower() in (".mp4", ".mov", ".mxf"):  # grab one frame with ffmpeg
+        frame = Path(tempfile.mkdtemp()) / "frame.png"
+        subprocess.run(["ffmpeg", "-v", "error", "-ss", str(a.at), "-i", str(src), "-frames:v", "1", str(frame)], check=True)
+        src = frame
+    img = np.asarray(Image.open(src).convert("RGB"), dtype=np.float64) / 255.0
+    corners = [tuple(map(float, c.split(","))) for c in a.corners]
+    patches = sample_chart(img, corners)
+    np.savetxt(a.out, patches, delimiter=",", fmt="%.6f", header="R,G,B signal 0..1, ColorChecker patches 1-24")
+    print(f"24 patches -> {a.out}  (white {patches[18].round(3)}, black {patches[23].round(3)})")
+    return 0
+
+
 def _load_patches(path: str):
     import numpy as np
 
@@ -115,7 +138,12 @@ def cmd_match(a) -> int:
     from .color.transfer import decode
 
     src = decode(a.source_curve, _load_patches(a.source))
-    dst = decode(a.target_curve, _load_patches(a.target))
+    if a.target == "colorchecker":  # no reference camera: match X-Rite's published patch values
+        from .color.colorchecker import reference_linear
+
+        dst = reference_linear()
+    else:
+        dst = decode(a.target_curve, _load_patches(a.target))
     if src.shape != dst.shape:
         raise ValueError("source and target must have the same number of patches")
     ccm = solve_ccm(src, dst, degree=a.degree)
@@ -144,8 +172,19 @@ def cmd_offload(a) -> int:
     if a.proxies and rep.ok:
         from .media import make_proxies
 
-        made = make_proxies(a.dest[0], a.proxies)
-        print(f"{len(made)} proxies in {a.proxies}")
+        lut = None
+        if a.look != "none":  # bake a look into the proxies so they arrive graded
+            from pathlib import Path
+
+            from .color.looks import look_transform
+            from .color.lut import build_lut, write_cube
+
+            source, look = a.look.split(":", 1) if ":" in a.look else ("std709", a.look)
+            lut = Path(a.proxies) / f"_look_{source}_{look}.cube"
+            lut.parent.mkdir(parents=True, exist_ok=True)
+            write_cube(lut, build_lut(look_transform(source, look), 33), title=f"{source} {look}")
+        made = make_proxies(a.dest[0], a.proxies, lut=lut)
+        print(f"{len(made)} proxies in {a.proxies}" + (f" with look {a.look}" if lut else ""))
     return 0 if rep.ok else 3
 
 
@@ -303,9 +342,19 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--size", type=int, nargs="+", default=[33, 65], help="LUT sizes")
     s.set_defaults(func=cmd_luts)
 
+    s = sub.add_parser("chart-sample", help="read the 24 ColorChecker patches from a still or clip into a CSV")
+    s.add_argument("image", help="PNG/JPEG/TIFF still, or MP4/MOV clip (one frame is grabbed)")
+    s.add_argument("--corners", nargs=4, required=True, metavar="X,Y",
+                   help="pixel centres of dark skin, bluish green, white, black")
+    s.add_argument("--at", type=float, default=1.0, help="seconds into a clip")
+    s.add_argument("--out", default="patches.csv")
+    s.set_defaults(func=cmd_chart_sample)
+
     s = sub.add_parser("match", help="chart-match two cameras into a .cube LUT + DCTL")
     s.add_argument("--source", required=True, help="CSV of source patch R,G,B (signal 0..1)")
-    s.add_argument("--target", required=True, help="CSV of reference patch R,G,B (signal 0..1)")
+    s.add_argument("--target", required=True,
+                   help="CSV of reference patch R,G,B (signal 0..1), or 'colorchecker' for the built-in "
+                        "X-Rite values (use with --target-curve rec709)")
     s.add_argument("--source-curve", default="hlg", choices=["slog2", "slog3", "hlg", "rec709"])
     s.add_argument("--target-curve", default="slog3", choices=["slog2", "slog3", "hlg", "rec709"])
     s.add_argument("--degree", type=int, default=1, choices=[1, 2, 3])
@@ -320,6 +369,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--algorithm", choices=["xxh3_128", "sha256", "blake2b"])
     s.add_argument("--quiet", action="store_true")
     s.add_argument("--proxies", help="after a clean offload, make H.264 proxies of video files into this folder")
+    s.add_argument("--look", default="fxdefault",
+                   help="look baked into proxies: LOOK for default-mode footage, or SOURCE:LOOK "
+                        "(e.g. slog3:cinetone); 'none' for untouched proxies")
     s.set_defaults(func=cmd_offload)
 
     s = sub.add_parser("desk", help="run the A7III Control Desk web app")

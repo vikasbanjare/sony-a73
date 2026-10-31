@@ -86,8 +86,10 @@ def probe(path: str | Path) -> dict:
     return json.loads(out.stdout)
 
 
-def make_proxy(src: str | Path, dst_dir: str | Path, height: int = 1080, codec: str = "h264") -> Path:
-    """Edit-friendly proxy keeping audio, timecode and the source's frame rate."""
+def make_proxy(src: str | Path, dst_dir: str | Path, height: int = 1080, codec: str = "h264",
+               lut: str | Path | None = None) -> Path:
+    """Edit-friendly proxy keeping audio, timecode and the source's frame rate.
+    ``lut``: a .cube baked into the proxy (e.g. the fxdefault look)."""
     if not ffmpeg_available():
         raise RuntimeError("ffmpeg not found on PATH")
     src = Path(src)
@@ -95,7 +97,7 @@ def make_proxy(src: str | Path, dst_dir: str | Path, height: int = 1080, codec: 
     dst.parent.mkdir(parents=True, exist_ok=True)
     vcodec = CODECS[codec] if codec != "h264" else ["-c:v", "libx264", "-preset", "fast", "-crf", "23", "-pix_fmt", "yuv420p"]
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-map", "0:v:0", "-map", "0:a?",
-           "-vf", f"scale=-2:'min({height},ih)'", *vcodec, "-c:a", "aac", "-b:a", "192k",
+           "-vf", (f"lut3d=file='{lut}'," if lut else "") + f"scale=-2:'min({height},ih)'", *vcodec, "-c:a", "aac", "-b:a", "192k",
            "-map_metadata", "0", str(dst)]
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:

@@ -14,6 +14,10 @@ Status reflects real-hardware testing on an ILCE-7M3, firmware 4.04 (see `CAMERA
 | S-Cinetone | Inspired look only | Camera + Post | `A7III-Cinetone` PP recipe, or `*_to_709_cinetone` LUT. Not Sony's processing. |
 | s709 / technical log → Rec.709 | Yes | Post + Desk | `a7iii luts` → `*_to_709_technical_33/65.cube`; Desk "Cine EI" view |
 | Portrait / soft-skin look | Yes | Camera + Post | `A7III-Portrait-Soft` PP, `*_to_709_portrait` LUT |
+| Rich default colour, no setup | Approximated | Camera + Post (automatic) | Set `A7III-FX-Default` (PP1) once; `a7iii offload --proxies` bakes the `fxdefault` look (richer colour, skin turned from green-yellow toward red, greys untouched) into every proxy by default |
+| Creative Looks (ST, PT, NT, VV, VV2, FL, IN, SH, BW, SE) | Look-alikes | Post + monitor | `a7iii luts` → `*_to_709_cl_*.cube`, built from Sony's description of each look; preview in `looks_preview.png` |
+| S-Cinetone skin rendering | Approximated | Post | `cinetone` look keeps skin chroma (OKLab hue 45°) while muting other colours |
+| Accurate colour (no reference camera) | Yes, chart-based | Post | Shoot a ColorChecker, `a7iii chart-sample clip.mp4 --corners …`, then `a7iii match --target colorchecker --target-curve rec709` |
 | FX3 camera match | Yes, chart-based | Post | `a7iii match` (needs paired chart shots from both cameras) |
 | User 3D LUT loaded in camera (MLUT) | — | — | No LUT import in a7 III firmware; use the Desk or an HDMI monitor |
 | 10-bit 4:2:2, All-Intra | — | — | 8-bit pipeline; `chroma` reconstruction helps grading only |

@@ -78,9 +78,10 @@ That serves the Control Desk at http://localhost:8000 against the virtual camera
 | `a7iii shutter --fps 23.976 --mains 50` | shutter-angle lock with anti-flicker |
 | `a7iii iso slog3 --need 3200` / `a7iii ei slog3 1600` | native ISOs and Cine EI offset |
 | `a7iii dof …` / `a7iii bracket …` | depth of field and focus-stack plans |
-| `a7iii luts --out luts` | FX-style LUT pack: S-Log3 / S-Log2 / HLG → Rec.709, technical / cinetone / portrait, 33 + 65 pt + DCTL |
+| `a7iii luts --out luts` | FX-style LUT pack: S-Log3 / S-Log2 / HLG → Rec.709, technical / cinetone / portrait (33 + 65 pt) and the ten FX3 Creative Look-alikes (33 pt), each with a DCTL |
+| `a7iii chart-sample CLIP --corners …` | read a ColorChecker into a CSV; then `a7iii match --target colorchecker` calibrates without a reference camera |
 | `a7iii match --source … --target …` | chart CSVs → `.cube` + DCTL |
-| `a7iii offload CARD SSD_A SSD_B --proxies PROXIES` | verified copy, then proxies |
+| `a7iii offload CARD SSD_A SSD_B --proxies PROXIES` | verified copy, then proxies with the FX-style `fxdefault` look baked in (`--look slog3:cinetone`, `--look none`, …) |
 | `a7iii nvram tweaks\|dump\|apply\|restore\|verify --sim IMAGE` | guarded NVRAM tool, rehearsed on a simulated body |
 | `a7iii profiles`, `a7iii readout`, `a7iii af-guard 13` | reference data and checks |
 
