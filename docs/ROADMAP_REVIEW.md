@@ -16,10 +16,10 @@ code does something different from the roadmap, it's listed here so nobody
 
 ## Hardware findings and claims still to check
 
-- **PTP property `0xD2E4` (Touch AF position)** and its coordinate encoding are marked `verified=False` in `ptp/codes.py`. The AI-AF bridge depends on this, so run `GetExtDeviceInfo` on the body first and see if the code is listed.
+- **Touch-AF `0xD2E4` is not reported by a real ILCE-7M3** (FW 4.04, 61 property codes; see `CAMERA_BASELINE.md`). On this body the AI-AF bridge can detect and show the subject, but it can't move the AF point through that property. The roadmap's §5 "Mode A" doesn't work as written. Next step: read (not write) the descriptors of the reported codes the roadmap doesn't name, for example the `0xD22C–0xD236` block, to see if one of them is an AF-area position.
 - ~~Live-view header layout~~ **Verified on a real ILCE-7M3** over USB PC Remote. The roadmap's §10.2 layout is wrong. The real object starts with a `u32` JPEG offset and a `u32` JPEG size (e.g. 1012 / 45568), then a Sony info block, then a 1024×576 JPEG. `parse_liveview` handles both layouts. Still to do: decode the info block, which presumably holds the focus frames.
 - **Rolling-shutter readout times** (§6.1) and **dual-gain ISOs** (§2.2) are typical published figures, not per-body calibration. Measure your own camera.
-- **Senser service mode on FW 4.04** (§3): the roadmap cites Sony-PMCA-RE issues #724/#733/#744/#747, dated after mid-2026. I couldn't verify them independently. The NVRAM module only provides the safety layer and a backend interface. It doesn't contain any USB service-mode code.
+- **Senser service mode on FW 4.04** (§3) **works**, confirmed on the owner's body with Sony-PMCA-RE. A full settings backup was taken before any write. The recording limit was raised to 13h 01m, and all 35 menu languages were enabled (see `CAMERA_BASELINE.md`). This project's own `nvram` module still ships no hardware backend: the real changes were made with PMCA-RE's own tool, and they can be undone the same way.
 
 ## What the end-to-end simulation found (`a7iii sim`)
 

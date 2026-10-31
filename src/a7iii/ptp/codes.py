@@ -78,6 +78,7 @@ PROPS: dict[str, Prop] = {p.name: p for p in [
     Prop(0xD2C2, "shutter_release", DataType.UINT16, "button"),  # 2 = down, 1 = up
     Prop(0xD2C8, "movie_record", DataType.UINT16, "button"),  # 2 = down, 1 = up
     Prop(0xD2D1, "near_far", DataType.INT16, "button"),  # signed focus step
+    # Not reported by a real ILCE-7M3 on FW 4.04 (docs/CAMERA_BASELINE.md); kept for the simulator and other bodies.
     Prop(0xD2E4, "touch_af_position", DataType.UINT32, "button", verified=False),
 ]}
 
