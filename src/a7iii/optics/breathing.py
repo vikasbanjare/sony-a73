@@ -45,3 +45,18 @@ def fit_breathing(focal_mm: float, distances_mm: np.ndarray, magnifications: np.
     A = np.stack([u, u**2], axis=-1)
     (k1, k2), *_ = np.linalg.lstsq(A, m - 1.0, rcond=None)
     return BreathingProfile(focal_mm=focal_mm, k1=float(k1), k2=float(k2), min_focus_mm=float(d.min()))
+
+
+def scale_about_center(frame: np.ndarray, scale: float) -> np.ndarray:
+    """Zoom a frame by ``scale`` (>= 1 crops in) about its centre, bilinear."""
+    from scipy.ndimage import map_coordinates
+
+    f = np.asarray(frame, dtype=np.float64)
+    H, W = f.shape[:2]
+    cy, cx = (H - 1) / 2, (W - 1) / 2
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float64)
+    sy = cy + (yy - cy) / scale
+    sx = cx + (xx - cx) / scale
+    if f.ndim == 2:
+        return map_coordinates(f, [sy, sx], order=1, mode="nearest")
+    return np.stack([map_coordinates(f[..., c], [sy, sx], order=1, mode="nearest") for c in range(f.shape[2])], -1)
