@@ -13,9 +13,18 @@ from .codes import (
     PROPS,
     SDIO_PROTOCOL_VERSION,
     ContainerType,
+    DataType,
     Op,
     Response,
 )
+
+# Properties a real ILCE-7M3 (FW 4.04) reports as get-only but moves one stop per
+# SetControlDeviceB +1/-1, ~0.9 s per step. Key: grows when stepping +1.
+STEP_KEYS = {
+    "iso": lambda v: v,
+    "f_number": lambda v: v,
+    "shutter_speed": lambda v: -(v >> 16) / max(v & 0xFFFF, 1),  # +1 = shorter exposure
+}
 from .container import Container, command, pack_value
 from .transport import Transport
 
@@ -100,7 +109,48 @@ class SonyCamera:
         prop = PROPS[name]
         if prop.control != "value":
             raise ValueError(f"{name} is a button control; use press()")
+        if name in STEP_KEYS:
+            desc = self.get_props().get(prop.code)
+            if desc is not None and not desc.writable:  # the body only accepts steps for this one
+                self._step_to(name, value)
+                return
         self.transact(Op.SONY_SET_CONTROL_DEVICE_A, prop.code, data_out=pack_value(prop.datatype, value))
+
+    def wait_value(self, name: str, value: int, timeout_s: float = 3.0) -> int:
+        """Poll until the body reports ``value`` (a real a7 III applies writes ~1 s late). Returns the last read."""
+        deadline = time.monotonic() + timeout_s
+        while True:
+            now = self.get_value(name)
+            if now == value or time.monotonic() >= deadline:
+                return now
+            time.sleep(0.15)
+
+    def step(self, name: str, direction: int, timeout_s: float = 3.0) -> int:
+        """Move a stepped property one stop (+1/-1) and return the new value once the body reports it."""
+        old = self.get_value(name)
+        self.transact(Op.SONY_SET_CONTROL_DEVICE_B, PROPS[name].code, data_out=pack_value(DataType.INT8, direction))
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            new = self.get_value(name)
+            if new != old:
+                return new
+            time.sleep(0.15)
+        return old  # at the end of its range, or the body ignored it
+
+    def _step_to(self, name: str, target: int, max_steps: int = 40) -> None:
+        key = STEP_KEYS[name]
+        cur = self.get_value(name)
+        for _ in range(max_steps):
+            gap = key(target) - key(cur)
+            if gap == 0:
+                return
+            new = self.step(name, 1 if gap > 0 else -1)
+            if new == cur:
+                raise RuntimeError(f"{name} stopped at {cur} before reaching {target}")
+            if (key(target) - key(new)) * gap < 0:
+                return  # ponytail: target isn't a stop on this body; keep the first one past it
+            cur = new
+        raise RuntimeError(f"{name} did not reach {target} in {max_steps} steps")
 
     def control(self, name: str, value: int) -> None:
         prop = PROPS[name]

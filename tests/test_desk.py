@@ -134,3 +134,21 @@ def test_cloud_sync_between_two_desks(tmp_path):
     tampered = backup.to_json().replace('"42"', '"43"')
     assert server.put("/v1/nvram", json={"backup_json": tampered}, headers=auth).status_code == 400
     assert server.get(f"/v1/nvram/{sha}", headers=auth).json()["serial"] == "42"
+
+
+def test_opening_the_desk_never_changes_a_real_cameras_exposure(tmp_path):
+    from a7iii.desk.rig import Rig
+
+    class RecordingBody:  # stands in for a real SonyCamera: records every write
+        def __init__(self):
+            self.writes = []
+
+        def set_prop(self, name, value):
+            self.writes.append((name, value))
+
+    body = RecordingBody()
+    rig = Rig(source=None, driver=body, media_dir=str(tmp_path / "takes"))
+    with TestClient(create_app(rig, autorun=False)) as client:
+        assert body.writes == []  # startup only plans
+        assert client.post("/api/settings", json={"fps": 25, "angle": 180}).status_code == 200
+    assert [n for n, _ in body.writes] == ["shutter_speed", "iso"]  # an edit in the desk does push

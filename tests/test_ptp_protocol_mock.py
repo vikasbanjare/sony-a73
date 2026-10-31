@@ -2,7 +2,7 @@ import struct
 
 import pytest
 
-from a7iii.ptp.codes import ContainerType, Op, Response
+from a7iii.ptp.codes import ContainerType, DataType, Op, Response
 from a7iii.ptp.container import Container, command
 from a7iii.ptp.session import PTPError, SonyCamera, extract_jpeg, parse_ext_device_info
 from a7iii.ptp.transport import MockTransport
@@ -56,10 +56,34 @@ def test_handshake_sequence():
 def test_set_prop_uses_control_a_with_data_phase():
     t = MockTransport()
     t.queue(ok(1))
-    SonyCamera(t).set_prop("iso", 640)
+    SonyCamera(t).set_prop("white_balance", 4)  # not a stepped property: straight to control A
     cmd, dat = (Container.unpack(w) for w in t.written)
-    assert cmd.code == Op.SONY_SET_CONTROL_DEVICE_A and cmd.params == (0xD21E,)
-    assert dat.type == ContainerType.DATA and dat.payload == struct.pack("<I", 640)
+    assert cmd.code == Op.SONY_SET_CONTROL_DEVICE_A and cmd.params == (0x5005,)
+    assert dat.type == ContainerType.DATA and dat.payload == struct.pack("<H", 4)
+
+
+def test_set_prop_steps_when_the_body_reports_get_only():
+    # a real ILCE-7M3 marks ISO/aperture/shutter get-only and moves one stop per control-B step
+    from a7iii.ptp.props import PropDesc
+
+    stops = [800, 1000, 1250, 1600, 2000]
+
+    class StepBody(SonyCamera):
+        def __init__(self):
+            self.i, self.sent = 1, []
+
+        def get_props(self):
+            return {0xD21E: PropDesc(0xD21E, DataType.UINT32, stops[self.i], writable=False)}
+
+        def transact(self, op, *params, data_out=None):
+            self.sent.append(op)
+            self.i = max(0, min(len(stops) - 1, self.i + struct.unpack("<b", data_out)[0]))
+
+    cam = StepBody()
+    cam.set_prop("iso", 1600)
+    assert stops[cam.i] == 1600 and set(cam.sent) == {Op.SONY_SET_CONTROL_DEVICE_B}
+    cam.set_prop("iso", 900)  # not a stop: lands on the first stop past it
+    assert stops[cam.i] == 800
 
 
 def test_buttons_use_control_b():

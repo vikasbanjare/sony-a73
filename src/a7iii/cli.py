@@ -188,6 +188,27 @@ def cmd_offload(a) -> int:
     return 0 if rep.ok else 3
 
 
+def cmd_ptp_check(a) -> int:
+    from .ptp import SonyCamera, UsbTransport
+    from .ptp.check import as_dicts, run
+
+    if a.sim:
+        from .sim import SimTransport, VirtualA7III, walking_subject_scene
+
+        transport = SimTransport(VirtualA7III(walking_subject_scene()))
+    else:  # pragma: no cover - needs hardware
+        transport = UsbTransport()
+    checks = run(SonyCamera(transport), write=a.write, capture=a.capture, record=a.record, frames=a.frames)
+    for c in checks:
+        print(f"{'SKIP' if c.ok is None else ('PASS' if c.ok else 'FAIL'):5s} {c.name:24s} {c.detail}")
+    if a.json:
+        from pathlib import Path
+
+        Path(a.json).write_text(json.dumps(as_dicts(checks), indent=2))
+        print(f"report: {a.json}")
+    return 0 if all(c.ok is not False for c in checks) else 4
+
+
 def cmd_desk(a) -> int:
     import uvicorn
 
@@ -373,6 +394,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help="look baked into proxies: LOOK for default-mode footage, or SOURCE:LOOK "
                         "(e.g. slog3:cinetone); 'none' for untouched proxies")
     s.set_defaults(func=cmd_offload)
+
+    s = sub.add_parser("ptp-check", help="validate what the connected camera accepts over PTP (read-only by default)")
+    s.add_argument("--write", action="store_true", help="also set exposure to a neighbouring value, read back, restore")
+    s.add_argument("--capture", action="store_true", help="also take one still")
+    s.add_argument("--record", action="store_true", help="also record a ~2 s clip")
+    s.add_argument("--frames", type=int, default=30, help="live-view frames to pull")
+    s.add_argument("--json", help="write the report here")
+    s.add_argument("--sim", action="store_true", help="run against the virtual a7 III")
+    s.set_defaults(func=cmd_ptp_check)
 
     s = sub.add_parser("desk", help="run the A7III Control Desk web app")
     s.add_argument("--sim", action="store_true", help="use the virtual a7 III")

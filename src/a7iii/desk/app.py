@@ -73,7 +73,8 @@ def create_app(rig: Rig, autorun: bool = True, loop_fps: float = 12.0) -> FastAP
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
-        rig.apply_settings()
+        # opening the desk must not change a real camera's exposure; only an edit in the desk pushes
+        rig.apply_settings(push=rig.sim is not None)
         task = asyncio.create_task(capture_loop()) if autorun else None
         yield
         if task:

@@ -17,7 +17,21 @@ Recorded 31 Oct 2026 from the owner's camera over USB on macOS (arm64).
   `0x5004 0x5005 0x5007 0x500a 0x500b 0x500c 0x500e 0x5010 0x5013 0xd200 0xd201 0xd203 0xd20d 0xd20e 0xd20f 0xd211 0xd213 0xd21e 0xd21b 0xd21d 0xd21f 0xd217 0xd218 0xd219 0xd212 0xd210 0xd21c 0xd222 0xd22c 0xd22d 0xd22e 0xd22f 0xd230 0xd231 0xd232 0xd233 0xd235 0xd236 0xd24f 0xd250 0xd221 0xd214 0xd215 0xd220 0xd2c1 0xd2c2 0xd2c3 0xd2c9 0xd2c8 0xd2c5 0xd2c7 0xd2cb 0xd2cc 0xd2cd 0xd2ce 0xd2cf 0xd2d0 0xd2d2 0xd2d3 0xd2d4 0xd2d1`
 - **0xD2E4 (touch-AF position) is not reported** → AI AF can't move the focus point on this body.
 - Live view works: header is u32 JPEG offset (1012) + u32 size, then an info block, then a 1024×576 JPEG. The first GetObject after connect can return 0x200F (Access Denied); retry.
-- Not yet tested: property writes, shutter release, movie record, focus steps.
+- `a7iii ptp-check --write --capture --record` on this body (mode dial M), all passing:
+
+| Control | How this body accepts it | Result |
+|---|---|---|
+| Read all properties | GetAllDevicePropData | 60 descriptors; values settle ~1 s after connect |
+| White balance | direct value (SetControlDeviceA) | 2 → 4 → 2, applied ~1 s late |
+| Shutter, ISO, aperture | **step only**: reported get-only, move one stop per SetControlDeviceB ±1 | 1/100↔1/125, ISO 1000↔1250, f/1.8↔f/2.0, ~0.9 s per stop |
+| Exposure compensation | ignored in M with fixed ISO | expected |
+| Focus | near/far step | accepted |
+| Shutter release, movie record | button press | accepted |
+| Live view | GetObject 0xFFFFC002 | ~5.5 fps; ~25 Access Denied replies right after connect |
+
+  `SonyCamera.set_prop` steps automatically when the body reports a property get-only, so shutter-angle
+  lock and Cine EI work on this body. The Control Desk runs live on it (`a7iii desk --ptp`) and does not
+  change the camera's exposure on startup — only an edit in the Desk pushes.
 
 ## Service mode (Sony-PMCA-RE v0.18-22-ga82f5ba, service shell)
 

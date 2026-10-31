@@ -85,7 +85,8 @@ class Rig:
 
     # --- settings ----------------------------------------------------------------
 
-    def apply_settings(self, **changes) -> dict:
+    def apply_settings(self, push: bool = True, **changes) -> dict:
+        """Validate and adopt settings; ``push=False`` plans without touching a real body's exposure."""
         for k in changes:
             if not hasattr(self.settings, k):
                 raise ValueError(f"unknown setting {k!r}")
@@ -104,7 +105,7 @@ class Rig:
         if self.sim is not None:  # body-menu settings PTP can't reach: set them on the simulated body
             self.sim.state.gamma = s.gamma
             self.sim.state.fps = s.fps
-        if self.driver is not None:
+        if self.driver is not None and push:
             self.shutter = apply_shutter_angle(self.driver, s.fps, s.angle, s.mains_hz)
             apply_cine_ei(self.driver, s.gamma, s.ei_base)
         else:

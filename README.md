@@ -78,6 +78,7 @@ That serves the Control Desk at http://localhost:8000 against the virtual camera
 | `a7iii shutter --fps 23.976 --mains 50` | shutter-angle lock with anti-flicker |
 | `a7iii iso slog3 --need 3200` / `a7iii ei slog3 1600` | native ISOs and Cine EI offset |
 | `a7iii dof …` / `a7iii bracket …` | depth of field and focus-stack plans |
+| `a7iii ptp-check [--write --capture --record]` | what the connected camera accepts over USB; writes are read back and restored |
 | `a7iii luts --out luts` | FX-style LUT pack: S-Log3 / S-Log2 / HLG → Rec.709, technical / cinetone / portrait (33 + 65 pt) and the ten FX3 Creative Look-alikes (33 pt), each with a DCTL |
 | `a7iii chart-sample CLIP --corners …` | read a ColorChecker into a CSV; then `a7iii match --target colorchecker` calibrates without a reference camera |
 | `a7iii match --source … --target …` | chart CSVs → `.cube` + DCTL |
@@ -88,7 +89,8 @@ That serves the Control Desk at http://localhost:8000 against the virtual camera
 ## Hardware status, honestly
 
 - **PTP over USB** (`UsbTransport`) is confirmed on a real ILCE-7M3 (firmware 4.04): handshake, 61 property
-  codes and live view. The body does **not** report Touch-AF `0xD2E4`; property writes are still untested.
+  codes, live view, white balance, step-controlled shutter/ISO/aperture, focus steps, stills and movie record
+  (`a7iii ptp-check`). The body does **not** report Touch-AF `0xD2E4`.
   See `docs/CAMERA_BASELINE.md`, and `docs/FX_FEATURE_MATRIX.md` for what each FX3/FX6 feature becomes here.
 - **NVRAM:** there is no hardware Senser backend, on purpose. The safety layer is complete and tested.
 - **GyroShoe firmware** is compiled in CI against API stubs, which checks syntax and types but not
