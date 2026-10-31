@@ -1,0 +1,724 @@
+[
+  {
+    "key": "nvram_languages",
+    "title": "35-language unlock via guarded NVRAM service tool",
+    "ref": "\u00a73.2-3.3, \u00a79",
+    "tier": "Tier 1",
+    "status": "PASS",
+    "criterion": "33 locked language flags enabled after a sealed backup, read-back verified, calibration untouched, restore works",
+    "metrics": {
+      "written": 33,
+      "languages_enabled": 35,
+      "calibration_untouched": true,
+      "restore_exact": true
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.0
+  },
+  {
+    "key": "nvram_locked",
+    "title": "29m59s limit + PAL/NTSC nag unlock",
+    "ref": "\u00a73.3, \u00a79",
+    "tier": "Tier 1",
+    "status": "BLOCKED",
+    "criterion": "refused until verified property IDs exist",
+    "metrics": {
+      "locked": [
+        "rec_limit",
+        "pal_ntsc_warning"
+      ]
+    },
+    "detail": "The roadmap gives no property IDs for these flags. The tool refuses to guess; add a verified ID to nvram/registry.py (reviewed change) to enable them.",
+    "artifacts": [],
+    "seconds": 0.0
+  },
+  {
+    "key": "picture_profiles",
+    "title": "Picture Profile recipes + correct-exposure grey",
+    "ref": "\u00a74.2",
+    "tier": "Tier 1",
+    "status": "PASS",
+    "criterion": "18% grey lands on each recipe's middle-grey level within 2%; recipe native ISOs match the DCG table",
+    "metrics": {
+      "A7III-Cinetone": {
+        "grey_signal": 0.4089,
+        "target": 0.409,
+        "native_iso_matches": true
+      },
+      "A7III-HLG-Cine": {
+        "grey_signal": 0.3782,
+        "target": 0.3783,
+        "native_iso_matches": true
+      },
+      "A7III-Log2-Pro": {
+        "grey_signal": 0.3394,
+        "target": 0.3395,
+        "native_iso_matches": true
+      },
+      "A7III-Neutral-709": {
+        "grey_signal": 0.4089,
+        "target": 0.409,
+        "native_iso_matches": true
+      }
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.01
+  },
+  {
+    "key": "dual_gain",
+    "title": "IMX410 dual conversion gain ('hidden dual native ISO')",
+    "ref": "\u00a72.2",
+    "tier": "Tier 1",
+    "status": "PASS",
+    "criterion": "shadow SNR at the HCG ISO beats the 'forbidden zone' ISO just below it (Cine4 640 > 500; S-Log3 5000 > 4000)",
+    "metrics": {
+      "Cine4 ISO 400": {
+        "shadow_snr": 4.12,
+        "gain": "LCG",
+        "read_noise_e": 3.77
+      },
+      "Cine4 ISO 500": {
+        "shadow_snr": 3.63,
+        "gain": "LCG",
+        "read_noise_e": 3.58
+      },
+      "Cine4 ISO 640": {
+        "shadow_snr": 3.75,
+        "gain": "HCG",
+        "read_noise_e": 1.67
+      },
+      "Cine4 ISO 800": {
+        "shadow_snr": 3.39,
+        "gain": "HCG",
+        "read_noise_e": 1.49
+      },
+      "S-Log3 ISO 3200": {
+        "shadow_snr": 1.12,
+        "gain": "LCG",
+        "read_noise_e": 3.77
+      },
+      "S-Log3 ISO 4000": {
+        "shadow_snr": 1.04,
+        "gain": "LCG",
+        "read_noise_e": 3.58
+      },
+      "S-Log3 ISO 5000": {
+        "shadow_snr": 1.2,
+        "gain": "HCG",
+        "read_noise_e": 1.69
+      },
+      "S-Log3 ISO 6400": {
+        "shadow_snr": 1.12,
+        "gain": "HCG",
+        "read_noise_e": 1.49
+      }
+    },
+    "detail": "Shadow patch (0.3% reflectance) at correct exposure for each ISO, measured pre-quantisation. The HCG ISO receives 22% less light than the ISO below it and still has the cleaner shadows.",
+    "artifacts": [],
+    "seconds": 0.03
+  },
+  {
+    "key": "hlg_vs_slog3_8bit",
+    "title": "HLG3 vs S-Log3 tonal density in an 8-bit pipeline",
+    "ref": "\u00a71.3, \u00a74.1",
+    "tier": "Tier 1",
+    "status": "PASS",
+    "criterion": "HLG3 spends more 8-bit code values per stop than S-Log3 across skin/midtones (-1.5..+1.5 EV)",
+    "metrics": {
+      "hlg": {
+        "codes_per_stop": 32.9,
+        "distinct_levels_3_stops": 100,
+        "max_display_step_8bit": 2.0
+      },
+      "slog2": {
+        "codes_per_stop": 22.0,
+        "distinct_levels_3_stops": 67,
+        "max_display_step_8bit": 3.0
+      },
+      "slog3": {
+        "codes_per_stop": 18.4,
+        "distinct_levels_3_stops": 56,
+        "max_display_step_8bit": 4.0
+      },
+      "rec709": {
+        "codes_per_stop": 41.9,
+        "distinct_levels_3_stops": 127,
+        "max_display_step_8bit": 1.0
+      }
+    },
+    "detail": "Larger display steps after the grade show up as visible banding on skin and skies.",
+    "artifacts": [],
+    "seconds": 0.0
+  },
+  {
+    "key": "fx3_color_match",
+    "title": "FX3 colour match: \u0394E2000 CCM + OKLab RBF -> 65\u00b3 LUT + DCTL",
+    "ref": "\u00a74.3, \u00a79",
+    "tier": "Tier 3",
+    "status": "PASS",
+    "criterion": "through the generated LUT: mean \u0394E2000 < 1.5 over 24 patches and < 1.0 on skin patches (roadmap Phase 2 gate)",
+    "metrics": {
+      "mean_dE_before": 2.01,
+      "mean_dE_after": 0.021,
+      "max_dE_after": 0.044,
+      "skin_dE_after": [
+        0.016,
+        0.011,
+        0.03
+      ],
+      "ccm_only_mean_dE": 0.389
+    },
+    "detail": "Patches extracted from rendered 8-bit frames (HLG3 a7 III vs S-Log3 FX3-like reference).",
+    "artifacts": [
+      "color_a7iii_hlg3.png",
+      "color_fx3_slog3.png",
+      "a7iii_hlg3_to_fx3_slog3.cube",
+      "a7iii_hlg3_to_fx3_slog3.dctl",
+      "a7iii_to_fx3_matrix_only.dctl"
+    ],
+    "seconds": 8.81
+  },
+  {
+    "key": "chroma_420",
+    "title": "8-bit 4:2:0 -> float 4:4:4 joint-bilateral chroma reconstruction",
+    "ref": "\u00a74.3 step 3",
+    "tier": "Tier 3",
+    "status": "PASS",
+    "criterion": "chroma error after reconstruction is lower than plain nearest-neighbour upsampling",
+    "metrics": {
+      "rmse_joint_bilateral": 0.00372,
+      "rmse_nearest": 0.02012,
+      "output_dtype": "float32"
+    },
+    "detail": "",
+    "artifacts": [
+      "chroma_reconstructed.png"
+    ],
+    "seconds": 0.12
+  },
+  {
+    "key": "ptp_handshake",
+    "title": "Sony PTP SDIO handshake + property control + live view",
+    "ref": "\u00a710.2",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "3-phase handshake succeeds, settings round-trip, live view returns a JPEG and focus frames",
+    "metrics": {
+      "props_reported": 7,
+      "liveview_bytes": 7433,
+      "focus_frame": {
+        "x": 0.5,
+        "y": 0.5,
+        "w": 0.06,
+        "h": 0.1,
+        "status": "unfocused"
+      },
+      "ops_logged": 10
+    },
+    "detail": "",
+    "artifacts": [
+      "ptp_liveview.png"
+    ],
+    "seconds": 0.11
+  },
+  {
+    "key": "ai_af",
+    "title": "External AI subject AF -> PTP Touch-AF -> native PDAF",
+    "ref": "\u00a75.2-5.3 mode A, \u00a79",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "subject eye stays inside the depth of field in >= 90% of frames after acquisition, vs a fixed AF point baseline",
+    "metrics": {
+      "in_focus_ai": 1.0,
+      "in_focus_fixed_point": 0.0
+    },
+    "detail": "Subject walks across frame; the fixed AF point (camera's own behaviour without subject tracking) loses them.",
+    "artifacts": [
+      "ai_af_tracking.png",
+      "fixed_point_baseline.png"
+    ],
+    "seconds": 19.64
+  },
+  {
+    "key": "pdaf_guard",
+    "title": "f/11 PDAF cutoff guard + hunting prevention",
+    "ref": "\u00a75.3 mode C, RSK-04",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "guard flags f/13 over PTP; CDAF beyond f/11 hunts measurably; AI steering is suppressed while PDAF is off",
+    "metrics": {
+      "f11_ok": true,
+      "f13_message": "PDAF DISABLED (f/13 > f/11) - add ND or switch to MF",
+      "settled_travel_pdaf_steps": 0.0,
+      "settled_travel_cdaf_steps": 204.81200000000013,
+      "ai_commands_sent_at_f16": 0
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 7.07
+  },
+  {
+    "key": "shutter_angle_flicker",
+    "title": "180\u00b0 shutter-angle lock + 50/60 Hz anti-flicker",
+    "ref": "\u00a77, \u00a710.3 module A",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "locked speeds render with < 0.5% row banding under AC light; the naive 180\u00b0 speed under 50 Hz bands visibly",
+    "metrics": {
+      "25.0p @ 50 Hz locked": {
+        "shutter": "1/50",
+        "effective_angle": 180.0,
+        "row_banding_pct": 0.0
+      },
+      "29.97p @ 50 Hz unlocked": {
+        "shutter": "1/60",
+        "effective_angle": 179.8,
+        "row_banding_pct": 7.068
+      },
+      "29.97p @ 50 Hz locked": {
+        "shutter": "1/50",
+        "effective_angle": 215.8,
+        "row_banding_pct": 0.0
+      },
+      "23.976p @ 60 Hz locked": {
+        "shutter": "1/40",
+        "effective_angle": 215.8,
+        "row_banding_pct": 0.0
+      },
+      "59.94p @ 60 Hz locked": {
+        "shutter": "1/60",
+        "effective_angle": 359.6,
+        "row_banding_pct": 0.0
+      }
+    },
+    "detail": "The unlocked 29.97p case picks 1/60 s (179.8\u00b0), which is not a multiple of the 100 Hz light period.",
+    "artifacts": [
+      "flicker_cases.png"
+    ],
+    "seconds": 0.05
+  },
+  {
+    "key": "cine_ei",
+    "title": "Cine EI mode (ISO locked to native gain, EI shifts the monitor LUT)",
+    "ref": "\u00a77, \u00a79",
+    "tier": "Tier 1+2",
+    "status": "PASS",
+    "criterion": "PTP locks ISO 5000 (HCG) for S-Log3; rating EI 10000 lifts monitored grey by exactly +1 EV; recorded signal unchanged",
+    "metrics": {
+      "recording_iso": 5000,
+      "gain": "HCG",
+      "recorded_grey": 0.4118,
+      "monitor_shift_ev": 1.0
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.02
+  },
+  {
+    "key": "el_zone_false_color",
+    "title": "EL-Zone style stop-based false colour",
+    "ref": "\u00a77, \u00a710.3 module B",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "18% grey maps to the middle-grey zone in every curve; +3.5 EV maps to 'bright highlight'",
+    "metrics": {
+      "Cine4": {
+        "grey_zone": "-0.5 to +0.5: middle grey",
+        "+3.5EV_zone": "+3 to +5: bright highlight"
+      },
+      "HLG3": {
+        "grey_zone": "-0.5 to +0.5: middle grey",
+        "+3.5EV_zone": "+3 to +5: bright highlight"
+      },
+      "S-Log2": {
+        "grey_zone": "-0.5 to +0.5: middle grey",
+        "+3.5EV_zone": "+3 to +5: bright highlight"
+      },
+      "S-Log3": {
+        "grey_zone": "-0.5 to +0.5: middle grey",
+        "+3.5EV_zone": "+3 to +5: bright highlight"
+      }
+    },
+    "detail": "10 zones, identical meaning across curves.",
+    "artifacts": [
+      "false_color_cine4_hlg3_slog2_slog3.png"
+    ],
+    "seconds": 0.22
+  },
+  {
+    "key": "focus_bracket_stack",
+    "title": "Automated focus bracketing over PTP + focus stacking",
+    "ref": "\u00a78.1, \u00a79",
+    "tier": "Tier 2+3",
+    "status": "PASS",
+    "criterion": "stack covers >= 90% of the frame at near-best sharpness; the best single frame covers far less",
+    "metrics": {
+      "slices": 41,
+      "planned_mm": [
+        300.8,
+        302.3,
+        303.9,
+        305.4,
+        307.0,
+        308.6,
+        310.2,
+        311.8,
+        313.4,
+        315.1,
+        316.8,
+        318.5,
+        320.2,
+        322.0,
+        323.8,
+        325.6,
+        327.4,
+        329.3,
+        331.1,
+        333.0,
+        335.0,
+        336.9,
+        338.9,
+        340.9,
+        343.0,
+        345.0,
+        347.1,
+        349.3,
+        351.4,
+        353.6,
+        355.8,
+        358.1,
+        360.4,
+        362.7,
+        365.0,
+        367.4,
+        369.9,
+        372.3,
+        374.8,
+        377.4,
+        380.0
+      ],
+      "coverage_stack": 0.995,
+      "coverage_best_single": 0.268
+    },
+    "detail": "",
+    "artifacts": [
+      "focus_stack_merged.png",
+      "focus_stack_first_last.png"
+    ],
+    "seconds": 3.67
+  },
+  {
+    "key": "rack_focus",
+    "title": "Cubic-B\u00e9zier rack focus over PTP near/far steps",
+    "ref": "\u00a75.3 mode B",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "lands exactly on target; eased (first tick < 1/3 of peak tick speed)",
+    "metrics": {
+      "ticks": 48,
+      "first_tick_steps": 0,
+      "peak_tick_steps": 9,
+      "final_step": 460.0
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.0
+  },
+  {
+    "key": "gyro_stabilization",
+    "title": "A7III-GyroShoe IMU + Gyroflow-style stabilisation (with RS correction)",
+    "ref": "\u00a76.1, \u00a79",
+    "tier": "Tier 2+3",
+    "status": "PASS",
+    "criterion": "IMU/video sync error < 10 ms with an unknown 370 ms START->record latency; frame-to-frame jitter reduced >= 4x",
+    "metrics": {
+      "sync_error_ms": 2.83,
+      "jitter_px_raw": 2.353,
+      "jitter_px_stabilised": 0.217,
+      "improvement_x": 10.8,
+      "imu_samples": 1666
+    },
+    "detail": "Sync by signed per-axis cross-correlation of gyro rate against rotation recovered from optical flow; per-row correction uses the FF 4K readout time.",
+    "artifacts": [
+      "gyroshoe_sd/A001C001.gcsv",
+      "gyro_before_after.png"
+    ],
+    "seconds": 2.19
+  },
+  {
+    "key": "rolling_shutter_modes",
+    "title": "Rolling-shutter readout: Full-Frame 4K24 vs Super35 4K24",
+    "ref": "\u00a72.1, \u00a76.1",
+    "tier": "Tier 1",
+    "status": "PASS",
+    "criterion": "measured skew ratio S35/FF within 15% of 13.8/24.4 = 0.566 on a fast pan",
+    "metrics": {
+      "skew_rad_per_frame_ff": 0.01556,
+      "skew_rad_per_frame_s35": 0.00799,
+      "ratio": 0.513
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.35
+  },
+  {
+    "key": "breathing_comp",
+    "title": "Dynamic focus-breathing compensation",
+    "ref": "\u00a76.2, \u00a79",
+    "tier": "Tier 2+3",
+    "status": "PASS",
+    "criterion": "breathing model fitted from rendered frames; compensated subject size varies < 0.5% across the focus range",
+    "metrics": {
+      "size_spread_before_pct": 3.85,
+      "size_spread_after_pct": 0.242,
+      "fitted_k1": -0.3588
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 14.3
+  },
+  {
+    "key": "focus_map",
+    "title": "Focus map / depth-of-field visualiser",
+    "ref": "\u00a77",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "subject at the focus plane is classified in-focus, background behind, and the overlay is rendered",
+    "metrics": {
+      "class_at_eye": 1,
+      "class_background": 2
+    },
+    "detail": "",
+    "artifacts": [
+      "focus_map.png"
+    ],
+    "seconds": 0.09
+  },
+  {
+    "key": "anamorphic",
+    "title": "Anamorphic de-squeeze + multi-aspect guides",
+    "ref": "\u00a77",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "a 2x-squeezed capture is restored to within 4% of true proportions; 2.39:1 guide computed",
+    "metrics": {
+      "eye_gap_px_true": 14.0,
+      "squeezed": 7.0,
+      "restored": 14.0,
+      "guide_2.39": {
+        "name": "2.39:1",
+        "x0": 0,
+        "y0": 28,
+        "x1": 384,
+        "y1": 189
+      }
+    },
+    "detail": "",
+    "artifacts": [
+      "anamorphic_restored_guides.png"
+    ],
+    "seconds": 0.13
+  },
+  {
+    "key": "scopes",
+    "title": "Waveform, RGB parade, vectorscope, histogram",
+    "ref": "\u00a77, \u00a79",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "scopes render from live frames; the chart's skin patch lands near the vectorscope skin-tone line",
+    "metrics": {
+      "light_skin_hue_angle_deg": 122.9,
+      "skin_line_deg": 123
+    },
+    "detail": "",
+    "artifacts": [
+      "scope_waveform.png",
+      "scope_parade.png",
+      "scope_vectorscope.png"
+    ],
+    "seconds": 0.09
+  },
+  {
+    "key": "preroll_buffer",
+    "title": "Pre-capture video ring buffer (retroactive recording)",
+    "ref": "\u00a77, \u00a79",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "a take triggered late contains the buffered seconds before the trigger, encoded to ProRes 422 HQ",
+    "metrics": {
+      "frames": 60,
+      "preroll_frames": 48,
+      "preroll_s": 1.9602936269602935,
+      "duration_s": 2.460794127460792,
+      "codec": "prores",
+      "pix_fmt": "yuv422p10le",
+      "file": "ILCE-7M3-1793425273164.mov"
+    },
+    "detail": "60 frames streamed before the trigger; buffer holds 2 s.",
+    "artifacts": [
+      "takes/ILCE-7M3-1793425273164/ILCE-7M3-1793425273164.mov"
+    ],
+    "seconds": 17.65
+  },
+  {
+    "key": "ltc_timecode",
+    "title": "SMPTE LTC generator + jam-sync from the camera's audio track",
+    "ref": "\u00a77",
+    "tier": "Tier 2+3",
+    "status": "PASS",
+    "criterion": "decoding LTC recorded on the camera's right channel recovers the exact start timecode of video frame 0",
+    "metrics": {
+      "decoded_frames": 224,
+      "first_decoded": "14:22:10:20",
+      "video_frame0_tc": "14:22:10:20",
+      "error_frames": 0.0
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.11
+  },
+  {
+    "key": "audio_matrix",
+    "title": "4-channel audio matrix: device sync, BWF timecode, clip repair",
+    "ref": "\u00a77",
+    "tier": "Tier 2+3",
+    "status": "PASS",
+    "criterion": "recorder synced to the sample; 4-ch BWF carries the start TC; clipped shout repaired from the -12 dB safety",
+    "metrics": {
+      "offset_samples": 777,
+      "clipped_samples": 1148,
+      "max_repair_error": 0.0,
+      "bwf_time_reference": 2483049600
+    },
+    "detail": "",
+    "artifacts": [
+      "take_4ch.wav"
+    ],
+    "seconds": 0.03
+  },
+  {
+    "key": "super_resolution",
+    "title": "Handheld multi-frame super-resolution",
+    "ref": "\u00a78.2",
+    "tier": "Tier 3",
+    "status": "PASS",
+    "criterion": "12 tremor-shifted stills reconstructed at 2x beat single-frame upscaling by >= 3 dB PSNR against a true 2x render",
+    "metrics": {
+      "psnr_single_bilinear_db": 28.69,
+      "psnr_superres_db": 34.48,
+      "gain_db": 5.8
+    },
+    "detail": "Pixels integrate light over their area (4x4 supersampled aperture).",
+    "artifacts": [
+      "superres_single_vs_sr.png"
+    ],
+    "seconds": 1.94
+  },
+  {
+    "key": "noise_stacking",
+    "title": "Multi-frame noise / astro stacking",
+    "ref": "\u00a78.2",
+    "tier": "Tier 3",
+    "status": "PASS",
+    "criterion": "16-frame sigma-clipped stack improves SNR by ~sqrt(16) = 4x (3.2x-4.8x)",
+    "metrics": {
+      "snr_single": 5.19,
+      "snr_stack": 18.46,
+      "gain_x": 3.56,
+      "dr_gain_ev": 2.0
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.04
+  },
+  {
+    "key": "precapture_burst",
+    "title": "Pre-capture burst (motion-triggered, with pre-roll)",
+    "ref": "\u00a78.3",
+    "tier": "Tier 2+3",
+    "status": "PASS",
+    "criterion": "trigger fires within 3 frames of the subject entering the ROI and the burst includes earlier frames",
+    "metrics": {
+      "subject_entered_s": 1.418,
+      "trigger_s": 1.502,
+      "burst_frames": 18
+    },
+    "detail": "",
+    "artifacts": [
+      "burst_first_trigger_last.png"
+    ],
+    "seconds": 2.97
+  },
+  {
+    "key": "ingest_offload",
+    "title": "Verified dual-destination offload + manifests + proxies",
+    "ref": "\u00a711 Phase 5",
+    "tier": "Tier 3",
+    "status": "PASS",
+    "criterion": "every file copied to both drives, hash-verified, resumable, manifests re-verify, proxies generated",
+    "metrics": {
+      "files": 2,
+      "manifests": 2,
+      "resume_all_skipped": true,
+      "proxies": [
+        "C0001_proxy.mp4"
+      ]
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 3.88
+  },
+  {
+    "key": "cloud_sync",
+    "title": "Cloud sync API: takes, presets, LUTs, sealed NVRAM backups",
+    "ref": "\u00a710.1 packages/07, Phase 5",
+    "tier": "Tier 3",
+    "status": "PASS",
+    "criterion": "two desks converge on the same take list; tampered NVRAM backup rejected",
+    "metrics": {
+      "takes_converged": true,
+      "backup_upload": 200,
+      "tampered_upload": 400
+    },
+    "detail": "",
+    "artifacts": [],
+    "seconds": 0.16
+  },
+  {
+    "key": "control_desk",
+    "title": "A7III Control Desk end to end (PTP + AI AF + scopes + takes)",
+    "ref": "\u00a710.1 packages/06",
+    "tier": "Tier 2",
+    "status": "PASS",
+    "criterion": "desk drives the simulated body over PTP, AI AF engages, every view and scope renders, a take is logged",
+    "metrics": {
+      "iso_locked": 125,
+      "shutter": "1/50",
+      "af": {
+        "status": "rate limited",
+        "sent": null,
+        "part": "eye"
+      },
+      "take_frames": 16
+    },
+    "detail": "",
+    "artifacts": [
+      "desk_falsecolor.jpg"
+    ],
+    "seconds": 4.27
+  },
+  {
+    "key": "tier4_limits",
+    "title": "Internal 10-bit 4:2:2, 4K60/120, HDMI RAW",
+    "ref": "\u00a79 Tier 4",
+    "tier": "Tier 4",
+    "status": "LIMIT",
+    "criterion": "documented silicon limits; not attempted",
+    "metrics": {},
+    "detail": "The CXD90045 video encoder and HDMI transmitter are 8-bit, and IMX410 readout bandwidth caps full-width 4K at 30p. No software path changes this. The suite instead gets the most out of 8-bit: HLG3, 4:2:2 HDMI capture, float chroma reconstruction and dithering.",
+    "artifacts": [],
+    "seconds": 0.0
+  }
+]

@@ -21,6 +21,17 @@ def sharpness(img: np.ndarray, sigma: float = 2.0) -> np.ndarray:
     return gaussian_filter(laplace(g) ** 2, sigma)
 
 
+def prepare(frames: list[np.ndarray], scales: list[float] | None = None, align: bool = True) -> list[np.ndarray]:
+    """Undo breathing (rescale to the largest magnification) and register translations."""
+    imgs = [np.asarray(f, dtype=np.float64) for f in frames]
+    if scales is not None:
+        target = max(scales)
+        imgs = [scale_about_center(f, target / s) if abs(target / s - 1) > 1e-6 else f for f, s in zip(imgs, scales)]
+    if align and len(imgs) > 1:
+        imgs, _ = align_to(imgs[len(imgs) // 2], imgs)
+    return imgs
+
+
 def focus_stack(
     frames: list[np.ndarray],
     scales: list[float] | None = None,
@@ -35,13 +46,7 @@ def focus_stack(
     """
     if not frames:
         raise ValueError("no frames")
-    imgs = [np.asarray(f, dtype=np.float64) for f in frames]
-    if scales is not None:
-        target = max(scales)
-        imgs = [scale_about_center(f, target / s) if abs(target / s - 1) > 1e-6 else f for f, s in zip(imgs, scales)]
-    if align and len(imgs) > 1:
-        ref = imgs[len(imgs) // 2]
-        imgs, _ = align_to(ref, imgs)
+    imgs = prepare(frames, scales, align)
     sharp = np.stack([sharpness(f, sigma) for f in imgs])
     norm = sharp / (sharp.max(axis=0, keepdims=True) + 1e-12)
     w = norm**power

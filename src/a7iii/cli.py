@@ -220,6 +220,24 @@ def cmd_nvram(a) -> int:
     return 0
 
 
+def cmd_sim(a) -> int:
+    from .sim.scenarios import run_all, scenario_keys
+
+    if a.list:
+        print("\n".join(scenario_keys()))
+        return 0
+    only = a.only.split(",") if a.only else None
+    if only:
+        unknown = set(only) - set(scenario_keys())
+        if unknown:
+            raise ValueError(f"unknown scenarios: {sorted(unknown)}")
+    results = run_all(a.out, only, progress=lambda r: print(f"{r.status:7s} {r.seconds:5.1f}s  {r.title}", flush=True))
+    counts = {s: sum(r.status == s for r in results) for s in ("PASS", "FAIL", "BLOCKED", "LIMIT")}
+    print(f"\n{counts['PASS']} passed, {counts['FAIL']} failed, {counts['BLOCKED']} blocked, "
+          f"{counts['LIMIT']} silicon limits -> {a.out}/report.md")
+    return 0 if counts["FAIL"] == 0 else 4
+
+
 def cmd_readout(a) -> int:
     for mode, ms in READOUT_MS.items():
         print(f"{mode:14s} {ms:5.1f} ms")
@@ -318,6 +336,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default=".", help="folder for dump")
     s.add_argument("--yes", action="store_true", help="actually write (default is a dry run)")
     s.set_defaults(func=cmd_nvram)
+
+    s = sub.add_parser("sim", help="run the end-to-end simulation of every roadmap feature")
+    s.add_argument("--out", default="sim_report", help="folder for report.md, report.json and images")
+    s.add_argument("--only", help="comma-separated scenario keys")
+    s.add_argument("--list", action="store_true", help="list scenario keys")
+    s.set_defaults(func=cmd_sim)
 
     s = sub.add_parser("readout", help="rolling-shutter readout times")
     s.set_defaults(func=cmd_readout)

@@ -110,10 +110,11 @@ class VirtualA7III:
     """Stateful simulated body. Advance time with ``advance(dt)``."""
 
     def __init__(self, scene: Scene, lens: Lens | None = None, width: int = 320, height: int = 180,
-                 seed: int = 0, color_matrix: np.ndarray | None = None):
+                 seed: int = 0, color_matrix: np.ndarray | None = None, supersample: int = 1):
         self.scene = scene
         self.lens = lens or Lens()
         self.W, self.H = width, height
+        self.supersample = supersample  # >1 integrates each pixel's area (box pixel aperture)
         self.state = CameraState()
         self.t = 0.0
         self.rng = np.random.default_rng(seed)
@@ -258,12 +259,20 @@ class VirtualA7III:
         readout = 0.0 if still else READOUT_MS.get(s.readout_mode, 24.4) / 1000.0
         t_row = self.t + readout * np.arange(H) / H
 
-        yaw, pitch = self.rotation(t_row)
-        px = (np.arange(W) - cx) / f_px
-        py = (np.arange(H) - cy) / f_px
+        ss = self.supersample
+        sub = (np.arange(ss) + 0.5) / ss - 0.5  # sub-pixel sample offsets
+        xs = (np.arange(W)[:, None] + sub[None, :]).ravel()
+        ys = (np.arange(H)[:, None] + sub[None, :]).ravel()
+        t_rows_ss = np.repeat(t_row, ss)
+        yaw, pitch = self.rotation(t_rows_ss)
+        px = (xs - cx) / f_px
+        py = (ys - cy) / f_px
         u = px[None, :] + yaw[:, None]
-        v = py[:, None] + pitch[:, None] + np.zeros((1, W))
-        radiance, depth = self.scene.sample(u, v, t_row)
+        v = py[:, None] + pitch[:, None] + np.zeros((1, W * ss))
+        radiance, depth = self.scene.sample(u, v, t_rows_ss)
+        if ss > 1:
+            radiance = radiance.reshape(H, ss, W, ss, 3).mean(axis=(1, 3))
+            depth = depth.reshape(H, ss, W, ss).min(axis=(1, 3))
 
         # Defocus: blur each pixel by the CoC of its depth (layered approximation).
         radiance = self._defocus(radiance, depth, f_px)

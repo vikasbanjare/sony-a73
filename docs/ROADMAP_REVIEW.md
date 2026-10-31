@@ -21,6 +21,32 @@ code does something different from the roadmap, it's listed here so nobody
 - **Rolling-shutter readout times** (§6.1) and **dual-gain ISOs** (§2.2) are typical published figures, not per-body calibration. Measure your own camera.
 - **Senser service mode on FW 4.04** (§3): the roadmap cites Sony-PMCA-RE issues #724/#733/#744/#747, dated after mid-2026. I couldn't verify them independently. The NVRAM module only provides the safety layer and a backend interface. It doesn't contain any USB service-mode code.
 
+## What the end-to-end simulation found (`a7iii sim`)
+
+These come from the physical camera model in `a7iii.sim`, not from a real body. They show what
+the physics implies; confirm on hardware.
+
+- **Dual gain (§2.2):** ISO 640 has cleaner shadows than ISO 500 (shadow SNR 3.75 vs 3.63), and
+  S-Log3 ISO 5000 beats 4000 (1.20 vs 1.04). It does **not** beat ISO 400 (4.12): at correct
+  exposure, ISO 400 gets 1.6× more light. Revised rule: skip the 320–500 range, but if ISO 400
+  gives enough exposure, use it.
+- **HLG3 vs S-Log3 (§1.3):** in the skin/midtone range HLG3 gets **32.9** 8-bit codes per stop against
+  S-Log3's **18.4**, which is +79%, more than the +35% the roadmap claims. After a Rec.709 grade, the largest step
+  between output levels is 2 codes for HLG3 and 4 for S-Log3.
+- **Anti-flicker (§10.3A):** under 50 Hz light at 29.97p, a plain 180° shutter (1/60) shows **7% row
+  banding**. The lock picks 1/50 (216°) and banding drops to 0. At 23.976p under 60 Hz it picks 1/40.
+- **Gyro sync (§6.1):** two corrections were needed for accurate sync:
+  1. Correlate **signed per-axis** rates. Magnitudes are ambiguous for hand shake.
+  2. Timestamp optical-flow measurements at **mid-readout** (frame start + readout/2). Without that, sync is
+     biased by 12 ms at FF 4K24, which wrecks stabilisation.
+
+  With both, sync error is 2.8 ms and jitter falls 10.8×.
+- **Colour match (§4.3):** in the simulator the cameras differ by linear 3×3 sensor responses, so
+  ΔE falls to about 0.02. Real cameras also differ spectrally (metamerism), so expect a larger residual on
+  real charts. The roadmap's < 1.5 gate is the meaningful target there.
+- **Pre-capture trigger (§8.3):** frame differencing misses a subject that arrives and then stops (it only sees
+  moving edges), so the trigger compares against a background model instead.
+
 ## Hard limits (Tier 4), as in the roadmap
 
 You can't get internal 10-bit video, 4K60, or RAW over HDMI. Nothing here attempts it.

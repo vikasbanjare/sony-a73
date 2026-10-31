@@ -33,6 +33,24 @@ def srgb_to_linear(v: np.ndarray) -> np.ndarray:
 COLORCHECKER_LINEAR = srgb_to_linear(COLORCHECKER_SRGB8 / 255.0)
 
 
+def _hash01(ix: np.ndarray, iy: np.ndarray) -> np.ndarray:
+    """Deterministic pseudo-random value in [0, 1) per integer lattice point."""
+    n = (ix.astype(np.int64) * 374761393 + iy.astype(np.int64) * 668265263) & 0xFFFFFFFF
+    n = ((n ^ (n >> 13)) * 1274126177) & 0xFFFFFFFF
+    return ((n ^ (n >> 16)) & 0xFFFFFF) / float(0x1000000)
+
+
+def _value_noise(X: np.ndarray, Y: np.ndarray, cell: float) -> np.ndarray:
+    """Smooth aperiodic noise in [0, 1) with features about ``cell`` metres across."""
+    gx, gy = X / cell, Y / cell
+    x0, y0 = np.floor(gx), np.floor(gy)
+    fx, fy = gx - x0, gy - y0
+    fx, fy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+    a, b = _hash01(x0, y0), _hash01(x0 + 1, y0)
+    c, d = _hash01(x0, y0 + 1), _hash01(x0 + 1, y0 + 1)
+    return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy
+
+
 def _texture(X: np.ndarray, Y: np.ndarray, scale: float | None) -> np.ndarray:
     """Band-limited detail texture in [0.25, 0.75] with features near ``scale`` metres.
 
@@ -41,11 +59,15 @@ def _texture(X: np.ndarray, Y: np.ndarray, scale: float | None) -> np.ndarray:
     if scale is None:
         return np.full(np.shape(X), 0.5)
     k = 2 * math.pi / scale
+    # Periodic structure (like fabric or brick) plus aperiodic detail, so image
+    # registration has a unique answer, as it does on real scenes.
     t = (
         0.5
-        + 0.12 * np.sin(k * X) * np.sin(k * Y)
-        + 0.08 * np.sin(2.3 * k * X + 1.7) * np.cos(1.9 * k * Y)
-        + 0.05 * np.sign(np.sin(0.25 * k * X) * np.sin(0.25 * k * Y))
+        + 0.06 * np.sin(k * X) * np.sin(k * Y)
+        + 0.04 * np.sin(2.3 * k * X + 1.7) * np.cos(1.9 * k * Y)
+        + 0.04 * np.sign(np.sin(0.25 * k * X) * np.sin(0.25 * k * Y))
+        + 0.20 * (_value_noise(X, Y, scale * 0.6) - 0.5)
+        + 0.10 * (_value_noise(X + 17.3, Y - 4.1, scale * 2.5) - 0.5)
     )
     return t
 

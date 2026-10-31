@@ -120,18 +120,39 @@ def estimate_offset(
 ) -> float:
     """Time offset (s) to ADD to IMU timestamps to align them with video.
 
-    ``imu_signal`` is typically |gyro| and ``video_signal`` the per-frame
-    optical-flow magnitude; both are resampled to ``rate_hz``, normalised and
-    cross-correlated. A rough first sync for Gyroflow to refine.
+    Signals may be 1-D (e.g. |gyro| vs optical-flow magnitude) or (N, k)
+    multi-axis *signed* signals (e.g. yaw/pitch rate vs camera rotation rate
+    derived from flow). Signed per-axis correlation is far more distinctive
+    than magnitudes for quasi-periodic hand shake, so prefer it. Each axis
+    is normalised, then the cross-correlations are summed.
+
+    Timestamp video measurements at mid-readout for rolling-shutter frames
+    (frame start + readout/2), or the estimate is biased by that amount.
     """
-    t0 = max(imu_t[0], video_t[0]) - max_offset_s
-    t1 = min(imu_t[-1], video_t[-1]) + max_offset_s
+    a_sig = np.asarray(imu_signal, dtype=np.float64)
+    b_sig = np.asarray(video_signal, dtype=np.float64)
+    if a_sig.ndim == 1:
+        a_sig, b_sig = a_sig[:, None], b_sig[:, None]
+    if a_sig.shape[1] != b_sig.shape[1]:
+        raise ValueError("IMU and video signals need the same number of axes")
+    t0 = min(imu_t[0], video_t[0]) - max_offset_s
+    t1 = max(imu_t[-1], video_t[-1]) + max_offset_s
     grid = np.arange(t0, t1, 1.0 / rate_hz)
-    a = np.interp(grid, imu_t, imu_signal, left=0.0, right=0.0)
-    b = np.interp(grid, video_t, video_signal, left=0.0, right=0.0)
-    a = (a - a.mean()) / (a.std() or 1.0)
-    b = (b - b.mean()) / (b.std() or 1.0)
-    max_lag = int(max_offset_s * rate_hz)
+    max_lag = int(round(max_offset_s * rate_hz))
     lags = np.arange(-max_lag, max_lag + 1)
-    scores = [np.dot(a[max(0, -k) : len(a) - max(0, k)], b[max(0, k) : len(b) - max(0, -k)]) for k in lags]
-    return float(lags[int(np.argmax(scores))] / rate_hz)
+    total = np.zeros(len(lags))
+    for k in range(a_sig.shape[1]):
+        a = np.interp(grid, imu_t, a_sig[:, k], left=np.nan, right=np.nan)
+        b = np.interp(grid, video_t, b_sig[:, k], left=np.nan, right=np.nan)
+        a = np.nan_to_num((a - np.nanmean(a)) / (np.nanstd(a) or 1.0))
+        b = np.nan_to_num((b - np.nanmean(b)) / (np.nanstd(b) or 1.0))
+        # score(lag) = sum a(t) * b(t + lag): video lags the IMU clock by ``lag`` samples
+        full = np.correlate(b, a, mode="full")
+        center = len(a) - 1
+        total += full[center + lags[0]: center + lags[-1] + 1]
+    i = int(np.argmax(total))
+    frac = 0.0
+    if 0 < i < len(total) - 1:  # parabolic sub-sample refinement of the peak
+        denom = total[i - 1] - 2 * total[i] + total[i + 1]
+        frac = 0.0 if denom == 0 else 0.5 * (total[i - 1] - total[i + 1]) / denom
+    return float((lags[i] + frac) / rate_hz)

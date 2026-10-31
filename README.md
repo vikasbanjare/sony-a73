@@ -1,71 +1,104 @@
 # a7iii-enhanced-suite
 
-Companion tooling for the **Sony α7 III (ILCE-7M3)**. It's built from the R&D roadmap in
-[`docs/ROADMAP.md`](docs/ROADMAP.md). Read [`docs/ROADMAP_REVIEW.md`](docs/ROADMAP_REVIEW.md)
-for the places where the code intentionally differs from the roadmap.
-
-This first milestone covers the parts that don't need hardware: the math, the protocol
-encoding and the safety layers. Everything is unit-tested.
-
-| Package | Roadmap | What's in it |
-|---|---|---|
-| `a7iii.color` | §4, packages/04 | S-Log2/S-Log3/HLG/Rec.709 transfer functions, CIEDE2000, a weighted ΔE2000 chart-matching CCM solver (root-polynomial), OKLab thin-plate-RBF residual stage, `.cube` LUT read/write/apply, DCTL export, a luma-guided 4:2:0 → float 4:4:4 chroma upsampler with TPDF dither, picture-profile recipes, native dual-gain ISOs |
-| `a7iii.cinema` | §7, §10.3 | Shutter-angle lock with flicker-safe snapping, Cine EI, stop-based false colour, pre-roll ring buffer |
-| `a7iii.optics` | §5, §6, §8 | DoF/hyperfocal, focus-bracketing plans, Bézier rack-focus schedules, focus-breathing fit and compensation, f/11 PDAF guard, rolling-shutter readout table, Gyroflow `.gcsv` writer/reader with BMI270 scales, IMU↔video offset estimation |
-| `a7iii.af` | §5, packages/03 | AI-AF bridge: eye → head → torso → box focus priority, subject lock, Kalman latency lookahead, letterbox/pillarbox mapping, a rate-limited and dead-banded controller that stops steering past f/11, and an optional YOLO-pose + ByteTrack adapter |
-| `a7iii.ingest` | Phase 5 | Verified multi-destination card offload: single read, temp file + atomic rename, hash verified after writing, resumable, conflict-safe, with a JSON manifest |
-| `a7iii.ptp` | §10.2, packages/02 | PTP container codec, Sony SDIO handshake, property and button control, live-view JPEG extraction, a pyusb transport and a mock transport |
-| `a7iii.nvram` | §3, packages/01 | **Deny-by-default** NVRAM write gate, SHA-256-sealed backups, a guarded apply/restore session that runs behind an abstract Senser backend |
-
-## Quick start
+Companion tooling for the **Sony α7 III (ILCE-7M3)**. It implements the R&D roadmap in
+[`docs/ROADMAP.md`](docs/ROADMAP.md), and a **virtual α7 III** exercises every feature end to end.
 
 ```bash
 pip install -e ".[dev]"
 ```
 
 ```bash
-pytest -q
+a7iii sim --out sim_report
 ```
+
+`a7iii sim` runs one scenario per roadmap feature and writes `report.md`, `report.json` and
+images. Current result: **29 passed, 0 failed, 1 blocked (on purpose), 1 silicon limit.**
 
 ```bash
-a7iii shutter --fps 23.976 --angle 180 --mains 50
+a7iii desk --sim
 ```
 
-Other commands: `iso`, `ei`, `dof`, `bracket`, `af-guard`, `profiles`, `readout`,
-`match` (chart CSVs → `.cube` + DCTL) and `offload` (verified card copy). Run `a7iii -h` for details.
+That serves the Control Desk at http://localhost:8000 against the virtual camera.
+
+## The virtual α7 III
+
+`a7iii.sim` renders a procedural 3D scene through a physical model of the camera:
+
+- **Exposure and sensor:** photon shot noise, full well, and IMX410-style **dual conversion gain**. The
+  HCG switch at analog ISO 640 lands on S-Log ISO 5000 and HLG3 ISO 800. Pre- and post-amp read noise are modelled.
+- **Optics:** per-pixel thin-lens defocus, focus breathing, a stepper focus motor, and a box pixel aperture for super-res.
+- **Rolling shutter:** every row is sampled at its own time, so pans and moving subjects skew.
+  FF 4K24 reads out in 24.4 ms, S35 in 13.8 ms.
+- **AC flicker:** integrated per row over the shutter window.
+- **AF behaviour:** PDAF drives straight to the subject. Past f/11 in movie mode it falls back to CDAF, which hunts.
+- **Picture profiles:** S-Log2/3, HLG and Rec.709 curves, 8-bit quantisation.
+- **A Sony PTP device** (`SimTransport`): the production `SonyCamera` driver runs against it **unmodified**.
+- Handheld motion with a BMI270-like IMU, a ground-truth stand-in for YOLO-pose, and a simulated NVRAM body.
+
+## Feature coverage (roadmap §9 and the rest of the document)
+
+| Roadmap feature | Module | Simulation result |
+|---|---|---|
+| 35-language unlock (NVRAM, Tier 1) | `nvram` + `a7iii nvram` | PASS: 33 flags written and verified, calibration untouched, exact restore |
+| 29m59s limit, PAL/NTSC nag | `nvram.registry` | **BLOCKED:** the roadmap gives no property IDs; the tool refuses to guess |
+| Picture Profile recipes | `color.profiles` | PASS: grey lands on each recipe's middle-grey level |
+| Dual native ISO (DCG) / Cine EI | `cinema.cine_ei`, `ptp.automation` | PASS: HCG ISO beats the ISO below it, EI shifts the monitor by exactly +1 EV |
+| HLG3 vs S-Log3 in 8-bit | `color.transfer` | PASS: HLG3 32.9 codes/stop vs S-Log3 18.4 |
+| FX3 colour match, ΔE2000 + OKLab RBF → 65³ LUT + DCTL | `color` | PASS: ΔE 2.0 → 0.02 in the sim (see notes) |
+| 4:2:0 → float 4:4:4 + dither | `color.chroma` | PASS: chroma RMSE 5.6× lower than nearest-neighbour |
+| AI subject AF → PTP Touch-AF | `af`, `ptp.automation.PtpAFSink` | PASS: 100% of frames in focus vs 0% for a fixed AF point |
+| f/11 PDAF guard, hunting prevention | `optics.af_guard`, `ptp.automation.ApertureGuard` | PASS |
+| Focus bracketing + stacking | `ptp.automation.focus_bracket`, `stills.focus_stack` | PASS: 99.8% of the frame sharp vs 16% for the best single slice |
+| Bézier rack focus | `optics.rack_focus`, `ptp.automation.rack_focus` | PASS |
+| 180° shutter lock + 50/60 Hz anti-flicker | `cinema.shutter` | PASS: 0% banding when locked, 7% when unlocked |
+| EL-Zone false colour, waveform, vectorscope | `cinema.false_color`, `cinema.scopes` | PASS |
+| GyroShoe IMU + Gyroflow stabilisation | `firmware/gyroshoe`, `optics.gyro`, `optics.stabilize` | PASS: 2.8 ms sync error, jitter 10.8× lower |
+| Rolling-shutter FF vs S35 | `optics.rolling_shutter` | PASS: measured ratio 0.51 vs 0.57 expected |
+| Focus-breathing compensation | `optics.breathing` | PASS: size spread 3.9% → 0.24% |
+| Focus map (DoF visualiser) | `optics.focus_map` | PASS |
+| Anamorphic de-squeeze + guides | `cinema.framing` | PASS |
+| Pre-capture ring buffer → ProRes | `cinema.ring_buffer`, `desk`, `media` | PASS |
+| SMPTE LTC generator / jam-sync | `audio.ltc`, `audio.timecode` | PASS: frame-exact video TC from camera audio |
+| 4-channel audio, BWF timecode, safety track | `audio.multitrack` | PASS |
+| Handheld super-resolution | `stills.superres` | PASS: +5.8 dB over single-frame upscaling |
+| Noise / astro stacking | `stills.stack` | PASS: 3.6× SNR from 16 frames |
+| Pre-capture burst (stills) | `stills.burst_trigger` | PASS |
+| Verified offload + proxies | `ingest`, `media` | PASS |
+| Cloud sync (takes, presets, LUTs, NVRAM backups) | `cloud` | PASS |
+| A7III Control Desk (UI + backend) | `desk` | PASS, and checked in headless Chromium |
+| Internal 10-bit, 4K60, HDMI RAW | n/a | **LIMIT:** Tier 4 silicon limit, not attempted |
+
+## Command line
+
+| Command | What it does |
+|---|---|
+| `a7iii sim [--only k1,k2] [--list]` | end-to-end simulation report |
+| `a7iii desk --sim` / `--uvc 0 --ptp` | Control Desk on the simulator, or on HDMI capture + USB PTP |
+| `a7iii cloud --db sync.sqlite --token …` | cloud sync API |
+| `a7iii shutter --fps 23.976 --mains 50` | shutter-angle lock with anti-flicker |
+| `a7iii iso slog3 --need 3200` / `a7iii ei slog3 1600` | native ISOs and Cine EI offset |
+| `a7iii dof …` / `a7iii bracket …` | depth of field and focus-stack plans |
+| `a7iii match --source … --target …` | chart CSVs → `.cube` + DCTL |
+| `a7iii offload CARD SSD_A SSD_B --proxies PROXIES` | verified copy, then proxies |
+| `a7iii nvram tweaks\|dump\|apply\|restore\|verify --sim IMAGE` | guarded NVRAM tool, rehearsed on a simulated body |
+| `a7iii profiles`, `a7iii readout`, `a7iii af-guard 13` | reference data and checks |
+
+## Hardware status, honestly
+
+- **PTP over USB** (`UsbTransport`) uses the same driver the simulator exercises. Three things are taken from
+  libgphoto2 or the roadmap and still need confirming on a real body: the Touch-AF property `0xD2E4` and its
+  encoding, the live-view header layout, and the property-descriptor layout. See `docs/ROADMAP_REVIEW.md`.
+- **NVRAM:** there is no hardware Senser backend, on purpose. The safety layer is complete and tested.
+- **GyroShoe firmware** is compiled in CI against API stubs, which checks syntax and types but not
+  on-device behaviour. Verify it on the board (see `firmware/gyroshoe/README.md`).
+- **YOLO-pose** is wired in through an optional `ultralytics` adapter. The simulator uses a ground-truth detector instead.
+- **HDMI capture** goes through OpenCV/UVC (`pip install '.[capture]'`).
+
+## Deploy
 
 ```bash
-a7iii match --source a7iii_patches.csv --source-curve hlg --target fx3_patches.csv --target-curve slog3 --out a7iii_to_fx3.cube
+docker compose up
 ```
 
-```bash
-a7iii offload /media/SONY_CARD /mnt/ssd_a /mnt/ssd_b
-```
-
-## Hardware status
-
-- **PTP** (`UsbTransport` + `SonyCamera`): implemented, but tested only against the mock
-  transport. To try it on a camera, set *Setup → USB Connection: PC Remote*, install
-  `pip install -e ".[usb]"`, then:
-
-  ```python
-  from a7iii.ptp import SonyCamera, UsbTransport
-  cam = SonyCamera(UsbTransport())
-  print([hex(c) for c in cam.connect()])   # supported property codes
-  ```
-
-- **NVRAM**: there's no USB backend on purpose. Only the language bitmap is writable,
-  and only after you take a matching backup. Writes are dry-run by default.
-  The record-limit and PAL/NTSC tweaks stay locked until a verified property ID is added
-  to `nvram/registry.py`. Never write factory calibration areas.
-
-- **AI-AF**: `AFController` sends image-normalised points to any `sink(u, v)` callable.
-  The PTP Touch-AF sink isn't wired up yet because the property encoding is unverified.
-  Until then you can test it with a logging sink, or point it at an external focus motor.
-
-## Not built yet
-
-- HDMI capture and the Control Desk UI (FastAPI + WebGL scopes, de-squeeze)
-- The PTP Touch-AF sink, which is waiting on hardware verification
-- GyroShoe ESP32 firmware (needs hardware to build and test)
-- Cloud sync API
+That starts the desk (simulated camera) on :8000 and the cloud API on :8080. Real hardware is easier
+to run natively than in containers.

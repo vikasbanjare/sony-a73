@@ -23,7 +23,8 @@ class MotionTrigger:
     min_level: float = 0.01  # absolute floor on the diff level
     cooldown_s: float = 1.0
     on_fire: Callable[[float, float], None] | None = None
-    _prev: np.ndarray | None = None
+    background_rate: float = 0.05  # how fast the background model absorbs slow changes
+    _bg: np.ndarray | None = None
     _noise: float | None = None
     _last_fire: float = -np.inf
     fires: list[float] = field(default_factory=list)
@@ -35,22 +36,32 @@ class MotionTrigger:
         return c.mean(axis=-1) if c.ndim == 3 else c
 
     def update(self, t: float, frame: np.ndarray) -> bool:
+        """Compare the ROI with a running background model, not just the last frame.
+
+        Frame differencing only sees moving edges. A background model also sees
+        something that arrives and then stays still (a bird landing, a runner
+        entering the zone), which is what a pre-capture trigger is for.
+        """
         roi = self._crop(frame)
         fired = False
-        if self._prev is not None:
-            level = float(np.mean(np.abs(roi - self._prev)))
-            if self._noise is None:
-                self._noise = level
-            threshold = max(self.min_level, self.sensitivity * self._noise)
-            if level > threshold and t - self._last_fire >= self.cooldown_s:
+        if self._bg is None:
+            self._bg = roi.copy()
+            return False
+        level = float(np.mean(np.abs(roi - self._bg)))
+        if self._noise is None:
+            self._noise = max(level, 1e-6)
+        threshold = max(self.min_level, self.sensitivity * self._noise)
+        if level > threshold:
+            if t - self._last_fire >= self.cooldown_s:
                 fired = True
                 self._last_fire = t
                 self.fires.append(t)
                 if self.on_fire:
                     self.on_fire(t, level)
-            elif level <= threshold:
-                self._noise = 0.95 * self._noise + 0.05 * level  # adapt to sensor noise / slow light changes
-        self._prev = roi
+        else:
+            # Only learn while nothing is happening, so a subject isn't absorbed into the background.
+            self._noise = 0.95 * self._noise + 0.05 * max(level, 1e-6)
+            self._bg = (1 - self.background_rate) * self._bg + self.background_rate * roi
         return fired
 
 
