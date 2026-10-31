@@ -5,41 +5,87 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A7III Control Desk</title>
 <style>
-  :root { --bg:#0e0f12; --panel:#17191e; --line:#2a2d35; --text:#e6e6e6; --dim:#8a8f99; --accent:#ffb000; --bad:#ff4d4d; --ok:#34c759; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.4 system-ui, sans-serif; }
-  header { display:flex; align-items:center; gap:16px; padding:8px 14px; border-bottom:1px solid var(--line); }
-  header h1 { font-size:14px; margin:0; letter-spacing:.04em; }
-  .pill { padding:2px 8px; border-radius:10px; background:var(--panel); border:1px solid var(--line); color:var(--dim); }
-  .pill.rec { background:var(--bad); color:#fff; border-color:var(--bad); }
-  main { display:grid; grid-template-columns: 1fr 340px; gap:12px; padding:12px; }
-  #stage { position:relative; background:#000; display:flex; align-items:center; justify-content:center; min-height:300px; }
+  /* iOS dark-mode system palette */
+  :root {
+    --bg:#000; --group:#1c1c1e; --group2:#2c2c2e; --fill:rgba(118,118,128,.24); --sep:rgba(84,84,88,.6);
+    --label:#fff; --label2:rgba(235,235,245,.6); --label3:rgba(235,235,245,.3);
+    --tint:#0a84ff; --red:#ff453a; --green:#30d158; --orange:#ff9f0a;
+    /* AA-safe variants: tinted text on grey fills, white text on filled buttons */
+    --tint-text:#64b5ff; --tint-fill:#0062cc; --red-fill:#d70015;
+    --r:12px;
+    color-scheme: dark;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--label); font:15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+
+  /* translucent nav bar */
+  header { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:8px; padding:10px 16px;
+    background:rgba(22,22,24,.72); backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:.5px solid var(--sep); }
+  header h1 { font-size:17px; font-weight:600; margin:0 auto 0 0; letter-spacing:-.01em; }
+  .pill { padding:3px 10px; border-radius:999px; background:var(--fill); color:var(--label2); font-size:13px; font-weight:500; font-variant-numeric:tabular-nums; }
+  .pill.rec { background:var(--red-fill); color:#fff; }
+  #link.live { color:var(--green); }
+
+  main { display:grid; grid-template-columns:1fr 360px; gap:20px; padding:16px; max-width:1500px; margin:0 auto; }
+  #stage { position:relative; background:#000; display:flex; align-items:center; justify-content:center; min-height:300px; border-radius:16px; overflow:hidden; }
   #video, #overlay { width:100%; height:auto; display:block; }
   #overlay { position:absolute; inset:0; margin:auto; cursor:crosshair; }
-  #banner { position:absolute; top:10px; left:50%; transform:translateX(-50%); background:var(--bad); color:#fff; padding:6px 12px; border-radius:6px; font-weight:600; display:none; }
-  aside { display:flex; flex-direction:column; gap:10px; }
-  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px; }
-  section h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0 0 8px; }
-  label { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:4px 0; }
-  select, input { background:#0f1115; color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; width:120px; }
-  .row { display:flex; gap:6px; flex-wrap:wrap; }
-  button { background:#232731; color:var(--text); border:1px solid var(--line); border-radius:5px; padding:5px 10px; cursor:pointer; }
-  button.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
-  button.danger { background:var(--bad); border-color:var(--bad); color:#fff; }
-  .views button.on { outline:2px solid var(--accent); }
-  table { width:100%; border-collapse:collapse; font-variant-numeric: tabular-nums; }
-  td { padding:2px 0; } td:last-child { text-align:right; }
-  .scopes { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .scopes img { width:100%; background:#000; image-rendering:pixelated; border:1px solid var(--line); }
-  .zones { display:flex; height:12px; border-radius:3px; overflow:hidden; margin-top:6px; }
-  .legend { display:grid; grid-template-columns: 14px 1fr; gap:2px 6px; font-size:11px; color:var(--dim); margin-top:6px; }
-  .legend i { width:12px; height:10px; display:inline-block; border-radius:2px; }
-  #takes { max-height:120px; overflow:auto; font-size:11px; color:var(--dim); }
+  #banner { position:absolute; top:12px; left:50%; transform:translateX(-50%); max-width:90%; background:rgba(215,0,21,.94);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); color:#fff; padding:10px 16px; border-radius:var(--r); font-weight:600; font-size:14px; display:none; }
+
+  /* toolbar: segmented control + actions */
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .views { display:flex; padding:2px; border-radius:9px; background:var(--fill); }
+  .views button { background:transparent; color:var(--label); padding:6px 14px; border-radius:7px; font-size:13px; font-weight:500; }
+  .views button.on { background:#636366; box-shadow:0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04); }
+
+  button { font:inherit; font-size:15px; font-weight:500; background:var(--fill); color:var(--tint-text); border:0; border-radius:10px; padding:8px 14px; cursor:pointer; transition:opacity .15s, transform .15s; }
+  button:active { opacity:.6; transform:scale(.97); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline:2px solid var(--tint); outline-offset:2px; }
+  button.primary { background:var(--tint-fill); color:#fff; }
+  button.danger { background:var(--red-fill); color:#fff; font-weight:600; }
+  .spacer { flex:1; }
+
+  /* Settings-style inset grouped lists */
+  aside { display:flex; flex-direction:column; gap:22px; }
+  section h2 { font-size:13px; font-weight:400; text-transform:uppercase; letter-spacing:.02em; color:var(--label2); margin:0 0 6px 16px; }
+  .group { background:var(--group); border-radius:var(--r); padding-left:16px; overflow:hidden; }
+  .group > label, .group > .item { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:44px; padding:6px 16px 6px 0; }
+  .group > * + * { border-top:.5px solid var(--sep); }
+  select, input { appearance:none; -webkit-appearance:none; background:transparent; color:var(--label2); border:0; font:inherit; text-align:right; padding:4px 0; max-width:60%; }
+  select { padding-right:18px; cursor:pointer; text-align-last:right;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M1 5l4-4 4 4M1 9l4 4 4-4' fill='none' stroke='%23ebebf599' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") right center no-repeat; }
+  select option { background:var(--group2); color:var(--label); }
+  input::placeholder { color:var(--label3); }
+  .item.actions { justify-content:flex-start; gap:8px; }
+  .item.actions button { flex:1; }
+
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  td { padding:11px 16px 11px 0; } td:last-child { text-align:right; color:var(--label2); }
+  tr + tr td { border-top:.5px solid var(--sep); }
+  .group.pad { padding:10px; }
+  .scopes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .scopes img { width:100%; aspect-ratio:4/3; object-fit:contain; background:#000; image-rendering:pixelated; border-radius:8px; }
+  .zones { display:flex; height:8px; border-radius:999px; overflow:hidden; margin-top:14px; background:var(--fill); }
+  /* JS emits <i>,<span> pairs as siblings: two dot+label pairs per row */
+  .legend { display:grid; grid-template-columns:10px 1fr 10px 1fr; align-items:center; gap:6px 8px; font-size:12px; color:var(--label2); margin-top:12px; }
+  .legend i { width:10px; height:10px; border-radius:50%; }
+  #takes { max-height:140px; overflow:auto; font-size:13px; color:var(--label2); padding:12px 16px 12px 0; }
+
+  /* iPhone / narrow: single column */
+  @media (max-width: 900px) {
+    main { grid-template-columns:1fr; padding:12px; gap:16px; }
+    #stage { border-radius:12px; min-height:0; }
+    .views { width:100%; } .views button { flex:1; }
+    .toolbar > button { flex:1; }
+    .spacer { display:none; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>A7III CONTROL DESK</h1>
+  <h1>Control Desk</h1>
   <span id="rec" class="pill">STBY</span>
   <span id="tc" class="pill">t 0.00</span>
   <span id="link" class="pill">connecting…</span>
@@ -51,13 +97,15 @@
       <canvas id="overlay"></canvas>
       <div id="banner"></div>
     </div>
-    <div class="row views" style="margin-top:8px">
-      <button data-mode="0" class="on">Normal</button>
-      <button data-mode="1">False colour</button>
-      <button data-mode="2">Cine EI LUT</button>
-      <button id="focusmap">Focus map (server)</button>
-      <span style="flex:1"></span>
-      <button id="preroll" class="primary">⏺ Trigger pre-roll</button>
+    <div class="toolbar">
+      <div class="views" role="tablist" aria-label="View">
+        <button data-mode="0" class="on">Normal</button>
+        <button data-mode="1">False colour</button>
+        <button data-mode="2">Cine EI</button>
+      </div>
+      <button id="focusmap">Focus map</button>
+      <span class="spacer"></span>
+      <button id="preroll" class="primary">Pre-roll</button>
       <button id="recbtn" class="danger">⏺ Record</button>
     </div>
     <div class="zones" id="zonebar"></div>
@@ -66,32 +114,38 @@
   <aside>
     <section>
       <h2>Exposure</h2>
-      <label>Frame rate <select id="fps"><option>23.976</option><option>25</option><option>29.97</option><option>50</option><option>59.94</option></select></label>
-      <label>Shutter angle <input id="angle" type="number" value="180" step="0.1" min="1" max="360"></label>
-      <label>Anti-flicker <select id="mains"><option value="50">50 Hz</option><option value="60">60 Hz</option><option value="0">Off</option></select></label>
-      <label>Gamma <select id="gamma"><option>Cine4</option><option>HLG3</option><option>S-Log2</option><option>S-Log3</option></select></label>
-      <label>Native ISO <select id="ei_base"><option value="low">Low (LCG)</option><option value="high">High (HCG)</option></select></label>
-      <label>Exposure index <input id="ei" type="number" step="1" placeholder="= ISO"></label>
+      <div class="group">
+        <label>Frame rate <select id="fps"><option>23.976</option><option>25</option><option>29.97</option><option>50</option><option>59.94</option></select></label>
+        <label>Shutter angle <input id="angle" type="number" value="180" step="0.1" min="1" max="360"></label>
+        <label>Anti-flicker <select id="mains"><option value="50">50 Hz</option><option value="60">60 Hz</option><option value="0">Off</option></select></label>
+        <label>Gamma <select id="gamma"><option>Cine4</option><option>HLG3</option><option>S-Log2</option><option>S-Log3</option></select></label>
+        <label>Native ISO <select id="ei_base"><option value="low">Low (LCG)</option><option value="high">High (HCG)</option></select></label>
+        <label>Exposure index <input id="ei" type="number" step="1" placeholder="= ISO"></label>
+      </div>
     </section>
     <section>
       <h2>Monitoring</h2>
-      <label>Anamorphic <select id="squeeze"><option value="1">1.0× (spherical)</option><option>1.33</option><option>1.5</option><option>1.6</option><option>1.8</option><option>2.0</option></select></label>
-      <label>Guides <select id="guides"><option value="true">2.39 + 93% safe</option><option value="false">Off</option></select></label>
-      <label>AI subject AF <select id="ai_af"><option value="false">Off</option><option value="true">On (tap to set point when off)</option></select></label>
-      <div class="row"><button id="rackNear">Rack near</button><button id="rackFar">Rack far</button></div>
+      <div class="group">
+        <label>Anamorphic <select id="squeeze"><option value="1">1.0× (spherical)</option><option>1.33</option><option>1.5</option><option>1.6</option><option>1.8</option><option>2.0</option></select></label>
+        <label>Guides <select id="guides"><option value="true">2.39 + 93% safe</option><option value="false">Off</option></select></label>
+        <label>AI subject AF <select id="ai_af"><option value="false">Off</option><option value="true">On</option></select></label>
+        <div class="item actions"><button id="rackNear">Rack near</button><button id="rackFar">Rack far</button></div>
+      </div>
     </section>
     <section>
       <h2>Telemetry</h2>
-      <table id="telemetry"></table>
+      <div class="group"><table id="telemetry"></table></div>
     </section>
     <section>
       <h2>Scopes</h2>
-      <div class="scopes">
-        <img id="sc-waveform" alt="waveform"><img id="sc-vectorscope" alt="vectorscope">
-        <img id="sc-parade" alt="RGB parade"><img id="sc-histogram" alt="histogram">
+      <div class="group pad">
+        <div class="scopes">
+          <img id="sc-waveform" alt="waveform"><img id="sc-vectorscope" alt="vectorscope">
+          <img id="sc-parade" alt="RGB parade"><img id="sc-histogram" alt="histogram">
+        </div>
       </div>
     </section>
-    <section><h2>Takes</h2><div id="takes">none yet</div></section>
+    <section><h2>Takes</h2><div class="group"><div id="takes">none yet</div></div></section>
   </aside>
 </main>
 <script>
@@ -190,7 +244,7 @@ function drawOverlay(w, h){
   }
   const af = state?.telemetry?.af;
   const p = af?.sent || afPoint;
-  if (p) { ctx.strokeStyle = af?.status === "sent" ? "#34c759" : "#ffb000"; ctx.lineWidth = 2;
+  if (p) { ctx.strokeStyle = af?.status === "sent" ? "#30d158" : "#ff9f0a"; ctx.lineWidth = 2;
     ctx.strokeRect(p[0]*w-12, p[1]*h-12, 24, 24); }
 }
 ov.addEventListener("click", async (e) => {
@@ -255,8 +309,8 @@ function refreshScopes(){ for (const k of ["waveform","vectorscope","parade","hi
 function connect(){
   const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.binaryType = "blob";
-  ws.onopen = () => { $("link").textContent = "live"; };
-  ws.onclose = () => { $("link").textContent = "reconnecting…"; setTimeout(connect, 1000); };
+  ws.onopen = () => { $("link").textContent = "● Live"; $("link").classList.add("live"); };
+  ws.onclose = () => { $("link").textContent = "Reconnecting…"; $("link").classList.remove("live"); setTimeout(connect, 1000); };
   ws.onmessage = async (ev) => {
     if (typeof ev.data === "string") { const m = JSON.parse(ev.data); if (m.telemetry) renderTelemetry(m.telemetry); return; }
     lastBitmap = await createImageBitmap(ev.data); draw();

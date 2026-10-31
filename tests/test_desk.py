@@ -20,7 +20,7 @@ def desk(tmp_path):
 
 def test_index_and_state(desk):
     client, _ = desk
-    assert "A7III CONTROL DESK" in client.get("/").text
+    assert "<title>A7III Control Desk</title>" in client.get("/").text
     st = client.get("/api/state").json()
     assert st["settings"]["fps"] == 23.976 and len(st["zones"]) == 10
 
