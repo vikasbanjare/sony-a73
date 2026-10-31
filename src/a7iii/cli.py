@@ -252,7 +252,10 @@ def cmd_desk(a) -> int:
                 except (ConnectionError, OSError) as e:
                     if not a.wait:
                         raise
-                    print(f"camera not ready ({e}); retrying in 3 s", file=sys.stderr)
+                    hint = ""
+                    if "Access denied" in str(e):  # another process holds the USB interface
+                        hint = " - another program has the camera: close other desks, then `killall ptpcamerad` (macOS)"
+                    print(f"camera not ready ({e}){hint}; retrying in 3 s", file=sys.stderr)
                     time.sleep(3)
         source = UVCSource(a.uvc) if a.uvc is not None else PTPLiveViewSource(driver)
         rig = Rig(source, driver=driver, store=Store(a.db), media_dir=a.media)
