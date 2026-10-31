@@ -209,6 +209,24 @@ def cmd_ptp_check(a) -> int:
     return 0 if all(c.ok is not False for c in checks) else 4
 
 
+def _lan_ips() -> list[str]:
+    """Addresses a phone on the same network can reach; the UDP trick needs no packets sent."""
+    import socket
+
+    ips = []
+    for probe in ("10.255.255.255", "192.168.255.255", "172.31.255.255"):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((probe, 1))
+            ip = s.getsockname()[0]
+            s.close()
+            if ip not in ips and not ip.startswith("127."):
+                ips.append(ip)
+        except OSError:
+            pass
+    return ips or ["<this computer's IP>"]
+
+
 def cmd_desk(a) -> int:
     import uvicorn
 
@@ -222,12 +240,26 @@ def cmd_desk(a) -> int:
         from .desk.sources import PTPLiveViewSource, UVCSource
         from .ptp import SonyCamera, UsbTransport
 
-        driver = SonyCamera(UsbTransport()) if a.ptp else None
-        if driver:
-            driver.connect()
+        driver = None
+        if a.ptp:
+            import time
+
+            while True:  # on a rig the camera may be off at boot: wait for it instead of dying
+                try:
+                    driver = SonyCamera(UsbTransport())
+                    driver.connect()
+                    break
+                except (ConnectionError, OSError) as e:
+                    if not a.wait:
+                        raise
+                    print(f"camera not ready ({e}); retrying in 3 s", file=sys.stderr)
+                    time.sleep(3)
         source = UVCSource(a.uvc) if a.uvc is not None else PTPLiveViewSource(driver)
         rig = Rig(source, driver=driver, store=Store(a.db), media_dir=a.media)
-    print(f"A7III Control Desk on http://{a.host}:{a.port}  ({'simulated camera' if a.sim else 'hardware'})")
+    urls = [f"http://{ip}:{a.port}" for ip in _lan_ips()] if a.host == "0.0.0.0" else [f"http://{a.host}:{a.port}"]
+    print(f"A7III Control Desk on {' or '.join(urls)}  ({'simulated camera' if a.sim else 'hardware'})")
+    if a.host == "0.0.0.0":
+        print("on your phone, open that address in Safari, then Share -> Add to Home Screen")
     uvicorn.run(create_app(rig, loop_fps=a.fps), host=a.host, port=a.port, log_level="warning")
     return 0
 
@@ -409,6 +441,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--scene", default="walking", choices=["walking", "approaching", "chart", "wall"])
     s.add_argument("--uvc", type=int, help="HDMI capture device index")
     s.add_argument("--ptp", action="store_true", help="control the camera over USB PTP")
+    s.add_argument("--wait", action="store_true", help="with --ptp: keep retrying until the camera appears (rig/boot use)")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
     s.add_argument("--fps", type=float, default=12.0, help="desk refresh rate")

@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>A7III Control Desk</title>
+<!-- installable on an iPhone home screen: Share -> Add to Home Screen opens it full-screen -->
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Control Desk">
+<meta name="theme-color" content="#000000">
 <style>
   /* iOS dark-mode system palette */
   :root {
@@ -19,7 +26,7 @@
   body { margin:0; background:var(--bg); color:var(--label); font:15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
 
   /* translucent nav bar */
-  header { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:8px; padding:10px 16px;
+  header { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:8px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
     background:rgba(22,22,24,.72); backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px);
     border-bottom:.5px solid var(--sep); }
   header h1 { font-size:17px; font-weight:600; margin:0 auto 0 0; letter-spacing:-.01em; }
@@ -75,7 +82,7 @@
 
   /* iPhone / narrow: single column */
   @media (max-width: 900px) {
-    main { grid-template-columns:1fr; padding:12px; gap:16px; }
+    main { grid-template-columns:1fr; padding:12px 12px calc(12px + env(safe-area-inset-bottom)); gap:16px; }
     #stage { border-radius:12px; min-height:0; }
     .views { width:100%; } .views button { flex:1; }
     .toolbar > button { flex:1; }

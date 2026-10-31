@@ -87,6 +87,13 @@ def create_app(rig: Rig, autorun: bool = True, loop_fps: float = 12.0) -> FastAP
     def index():
         return FileResponse(STATIC / "index.html")
 
+    @app.get("/static/{name}")  # manifest + icon for "Add to Home Screen"
+    def static_file(name: str):
+        path = STATIC / name
+        if not path.is_file() or path.name != name:
+            raise HTTPException(404)
+        return FileResponse(path)
+
     @app.get("/api/state")
     def state():
         return rig.state()
