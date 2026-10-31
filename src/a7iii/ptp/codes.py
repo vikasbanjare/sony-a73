@@ -88,3 +88,17 @@ LIVEVIEW_HANDLE = 0xFFFFC002
 SDIO_PROTOCOL_VERSION = 0x00C8  # 2.00
 
 SONY_VID = 0x054C
+
+# Touch-AF / AF-point position. Encoding per the roadmap's 0..10000 convention:
+# (x << 16) | y. UNVERIFIED on ILCE-7M3 - confirm before trusting on hardware.
+TOUCH_AF_SCALE = 10000
+
+
+def encode_touch_af(u: float, v: float) -> int:
+    x = int(round(min(max(u, 0.0), 1.0) * TOUCH_AF_SCALE))
+    y = int(round(min(max(v, 0.0), 1.0) * TOUCH_AF_SCALE))
+    return (x << 16) | y
+
+
+def decode_touch_af(value: int) -> tuple[float, float]:
+    return ((value >> 16) & 0xFFFF) / TOUCH_AF_SCALE, (value & 0xFFFF) / TOUCH_AF_SCALE

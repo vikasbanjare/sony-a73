@@ -125,6 +125,30 @@ class SonyCamera:
     def get_all_props_raw(self) -> bytes:
         return self.transact(Op.SONY_GET_ALL_DEVICE_PROP_DATA).data
 
+    def get_props(self) -> dict[int, "PropDesc"]:
+        from .props import parse_props
+
+        return parse_props(self.get_all_props_raw())
+
+    def get_value(self, name: str) -> int:
+        code = PROPS[name].code
+        props = self.get_props()
+        if code not in props:
+            raise KeyError(f"camera did not report {name} (0x{code:04X})")
+        return props[code].value
+
+    def set_af_point(self, u: float, v: float) -> None:
+        """Move the AF point (image-normalised). Uses the unverified 0xD2E4 encoding."""
+        from .codes import encode_touch_af
+
+        self.control("touch_af_position", encode_touch_af(u, v))
+
+    def liveview(self):
+        """Fetch and parse a live-view object (JPEG + focus frames)."""
+        from .liveview import parse_liveview
+
+        return parse_liveview(self.liveview_frame())
+
     def liveview_frame(self) -> bytes:
         """Return the raw live-view object; see ``extract_jpeg``."""
         return self.transact(Op.GET_OBJECT, LIVEVIEW_HANDLE).data
