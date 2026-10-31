@@ -133,7 +133,44 @@ def cmd_offload(a) -> int:
         print(f"PROBLEM: {p}")
     for m in rep.manifests:
         print(f"manifest: {m}")
+    if a.proxies and rep.ok:
+        from .media import make_proxies
+
+        made = make_proxies(a.dest[0], a.proxies)
+        print(f"{len(made)} proxies in {a.proxies}")
     return 0 if rep.ok else 3
+
+
+def cmd_desk(a) -> int:
+    import uvicorn
+
+    from .desk.app import build_sim_rig, create_app
+
+    if a.sim:
+        rig = build_sim_rig(a.scene, media_dir=a.media, db=a.db)
+    else:  # pragma: no cover - needs hardware
+        from .cloud.store import Store
+        from .desk.rig import Rig
+        from .desk.sources import PTPLiveViewSource, UVCSource
+        from .ptp import SonyCamera, UsbTransport
+
+        driver = SonyCamera(UsbTransport()) if a.ptp else None
+        if driver:
+            driver.connect()
+        source = UVCSource(a.uvc) if a.uvc is not None else PTPLiveViewSource(driver)
+        rig = Rig(source, driver=driver, store=Store(a.db), media_dir=a.media)
+    print(f"A7III Control Desk on http://{a.host}:{a.port}  ({'simulated camera' if a.sim else 'hardware'})")
+    uvicorn.run(create_app(rig, loop_fps=a.fps), host=a.host, port=a.port, log_level="warning")
+    return 0
+
+
+def cmd_cloud(a) -> int:
+    import uvicorn
+
+    from .cloud.api import create_app
+
+    uvicorn.run(create_app(a.db, a.token), host=a.host, port=a.port, log_level="warning")
+    return 0
 
 
 def cmd_readout(a) -> int:
@@ -204,7 +241,27 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("dest", nargs="+")
     s.add_argument("--algorithm", choices=["xxh3_128", "sha256", "blake2b"])
     s.add_argument("--quiet", action="store_true")
+    s.add_argument("--proxies", help="after a clean offload, make H.264 proxies of video files into this folder")
     s.set_defaults(func=cmd_offload)
+
+    s = sub.add_parser("desk", help="run the A7III Control Desk web app")
+    s.add_argument("--sim", action="store_true", help="use the virtual a7 III")
+    s.add_argument("--scene", default="walking", choices=["walking", "approaching", "chart", "wall"])
+    s.add_argument("--uvc", type=int, help="HDMI capture device index")
+    s.add_argument("--ptp", action="store_true", help="control the camera over USB PTP")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=8000)
+    s.add_argument("--fps", type=float, default=12.0, help="desk refresh rate")
+    s.add_argument("--db", default="a7iii_desk.sqlite")
+    s.add_argument("--media", default="takes")
+    s.set_defaults(func=cmd_desk)
+
+    s = sub.add_parser("cloud", help="run the cloud sync API")
+    s.add_argument("--db", default="a7iii_sync.sqlite")
+    s.add_argument("--token", default=None, help="bearer token (or A7III_SYNC_TOKEN)")
+    s.add_argument("--host", default="0.0.0.0")
+    s.add_argument("--port", type=int, default=8080)
+    s.set_defaults(func=cmd_cloud)
 
     s = sub.add_parser("readout", help="rolling-shutter readout times")
     s.set_defaults(func=cmd_readout)

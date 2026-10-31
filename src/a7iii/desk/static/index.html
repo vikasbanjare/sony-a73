@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A7III Control Desk</title>
+<style>
+  :root { --bg:#0e0f12; --panel:#17191e; --line:#2a2d35; --text:#e6e6e6; --dim:#8a8f99; --accent:#ffb000; --bad:#ff4d4d; --ok:#34c759; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.4 system-ui, sans-serif; }
+  header { display:flex; align-items:center; gap:16px; padding:8px 14px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:14px; margin:0; letter-spacing:.04em; }
+  .pill { padding:2px 8px; border-radius:10px; background:var(--panel); border:1px solid var(--line); color:var(--dim); }
+  .pill.rec { background:var(--bad); color:#fff; border-color:var(--bad); }
+  main { display:grid; grid-template-columns: 1fr 340px; gap:12px; padding:12px; }
+  #stage { position:relative; background:#000; display:flex; align-items:center; justify-content:center; min-height:300px; }
+  #video, #overlay { width:100%; height:auto; display:block; }
+  #overlay { position:absolute; inset:0; margin:auto; cursor:crosshair; }
+  #banner { position:absolute; top:10px; left:50%; transform:translateX(-50%); background:var(--bad); color:#fff; padding:6px 12px; border-radius:6px; font-weight:600; display:none; }
+  aside { display:flex; flex-direction:column; gap:10px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px; }
+  section h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0 0 8px; }
+  label { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:4px 0; }
+  select, input { background:#0f1115; color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; width:120px; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; }
+  button { background:#232731; color:var(--text); border:1px solid var(--line); border-radius:5px; padding:5px 10px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  button.danger { background:var(--bad); border-color:var(--bad); color:#fff; }
+  .views button.on { outline:2px solid var(--accent); }
+  table { width:100%; border-collapse:collapse; font-variant-numeric: tabular-nums; }
+  td { padding:2px 0; } td:last-child { text-align:right; }
+  .scopes { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .scopes img { width:100%; background:#000; image-rendering:pixelated; border:1px solid var(--line); }
+  .zones { display:flex; height:12px; border-radius:3px; overflow:hidden; margin-top:6px; }
+  .legend { display:grid; grid-template-columns: 14px 1fr; gap:2px 6px; font-size:11px; color:var(--dim); margin-top:6px; }
+  .legend i { width:12px; height:10px; display:inline-block; border-radius:2px; }
+  #takes { max-height:120px; overflow:auto; font-size:11px; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>A7III CONTROL DESK</h1>
+  <span id="rec" class="pill">STBY</span>
+  <span id="tc" class="pill">t 0.00</span>
+  <span id="link" class="pill">connecting…</span>
+</header>
+<main>
+  <div>
+    <div id="stage">
+      <canvas id="video"></canvas>
+      <canvas id="overlay"></canvas>
+      <div id="banner"></div>
+    </div>
+    <div class="row views" style="margin-top:8px">
+      <button data-mode="0" class="on">Normal</button>
+      <button data-mode="1">False colour</button>
+      <button data-mode="2">Cine EI LUT</button>
+      <button id="focusmap">Focus map (server)</button>
+      <span style="flex:1"></span>
+      <button id="preroll" class="primary">⏺ Trigger pre-roll</button>
+      <button id="recbtn" class="danger">⏺ Record</button>
+    </div>
+    <div class="zones" id="zonebar"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <aside>
+    <section>
+      <h2>Exposure</h2>
+      <label>Frame rate <select id="fps"><option>23.976</option><option>25</option><option>29.97</option><option>50</option><option>59.94</option></select></label>
+      <label>Shutter angle <input id="angle" type="number" value="180" step="0.1" min="1" max="360"></label>
+      <label>Anti-flicker <select id="mains"><option value="50">50 Hz</option><option value="60">60 Hz</option><option value="0">Off</option></select></label>
+      <label>Gamma <select id="gamma"><option>Cine4</option><option>HLG3</option><option>S-Log2</option><option>S-Log3</option></select></label>
+      <label>Native ISO <select id="ei_base"><option value="low">Low (LCG)</option><option value="high">High (HCG)</option></select></label>
+      <label>Exposure index <input id="ei" type="number" step="1" placeholder="= ISO"></label>
+    </section>
+    <section>
+      <h2>Monitoring</h2>
+      <label>Anamorphic <select id="squeeze"><option value="1">1.0× (spherical)</option><option>1.33</option><option>1.5</option><option>1.6</option><option>1.8</option><option>2.0</option></select></label>
+      <label>Guides <select id="guides"><option value="true">2.39 + 93% safe</option><option value="false">Off</option></select></label>
+      <label>AI subject AF <select id="ai_af"><option value="false">Off</option><option value="true">On (tap to set point when off)</option></select></label>
+      <div class="row"><button id="rackNear">Rack near</button><button id="rackFar">Rack far</button></div>
+    </section>
+    <section>
+      <h2>Telemetry</h2>
+      <table id="telemetry"></table>
+    </section>
+    <section>
+      <h2>Scopes</h2>
+      <div class="scopes">
+        <img id="sc-waveform" alt="waveform"><img id="sc-vectorscope" alt="vectorscope">
+        <img id="sc-parade" alt="RGB parade"><img id="sc-histogram" alt="histogram">
+      </div>
+    </section>
+    <section><h2>Takes</h2><div id="takes">none yet</div></section>
+  </aside>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const CURVES = { "cine4": 0, "s-log2": 1, "s-log3": 2, "hlg3": 3 };
+let state = null, mode = 0, squeeze = 1, recording = false, guides = true;
+
+// ---------- WebGL ----------
+const canvas = $("video");
+const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
+const VS = `#version 300 es
+in vec2 p; out vec2 uv;
+void main(){ uv = vec2((p.x+1.)/2., (1.-p.y)/2.); gl_Position = vec4(p,0.,1.); }`;
+const FS = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o;
+uniform sampler2D tex; uniform int uMode; uniform int uCurve; uniform float uGain;
+uniform float uBounds[9]; uniform vec3 uColors[10];
+float decode(float y){
+  if (uCurve == 2) { // S-Log3
+    return y >= 171.2102946929/1023. ? pow(10., (y*1023.-420.)/261.5)*0.19-0.01 : (y*1023.-95.)*0.01125/(171.2102946929-95.);
+  } else if (uCurve == 1) { // S-Log2
+    float f = (y*1023.-64.)/876.;
+    float x = f >= 0.030001222851889303 ? pow(10., (f-0.646596)/0.432699)-0.037584 : (f-0.030001222851889303)/5.;
+    return x*0.9*219./155.;
+  } else if (uCurve == 3) { // HLG (BT.2100), reflectance scale
+    float a=0.17883277, b=0.28466892, c=0.55991073;
+    float e = y <= 0.5 ? y*y/3. : (exp((y-c)/a)+b)/12.;
+    return e/0.26496256;
+  }
+  return y < 0.081 ? y/4.5 : pow((y+0.099)/1.099, 1./0.45); // Rec.709
+}
+vec3 dec3(vec3 s){ return vec3(decode(s.r), decode(s.g), decode(s.b)); }
+float tonemap(float x){ return x <= 0.6 ? x : 0.6 + 0.4*(1.-exp(-(x-0.6)/0.4)); }
+float enc709(float x){ x = max(x,0.); return x < 0.018 ? 4.5*x : 1.099*pow(x,0.45)-0.099; }
+void main(){
+  vec3 s = texture(tex, uv).rgb;
+  if (uMode == 1) {
+    float Y = dot(dec3(s), vec3(0.2126,0.7152,0.0722));
+    float ev = log2(max(Y,1e-6)/0.18);
+    int z = 0; for (int i=0;i<9;i++){ if (ev >= uBounds[i]) z = i+1; }
+    o = vec4(uColors[z], 1.);
+  } else if (uMode == 2) {
+    vec3 l = dec3(s)*uGain;
+    o = vec4(enc709(tonemap(l.r)), enc709(tonemap(l.g)), enc709(tonemap(l.b)), 1.);
+  } else { o = vec4(s,1.); }
+}`;
+function compile(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+const U = (n) => gl.getUniformLocation(prog, n);
+let lastBitmap = null;
+
+function setZones(zones){
+  const bounds = zones.slice(1).map(z => z.from);
+  gl.uniform1fv(U("uBounds"), new Float32Array(bounds));
+  gl.uniform3fv(U("uColors"), new Float32Array(zones.flatMap(z => z.rgb.map(v => v/255))));
+  $("legend").innerHTML = zones.map(z => `<i style="background:rgb(${z.rgb})"></i><span>${z.label}</span>`).join("");
+}
+function eiGain(){
+  const s = state.settings, iso = state.telemetry.recording_iso;
+  if (!s.ei || !iso) return 1;
+  return s.ei / iso;  // monitor offset = log2(EI / recording ISO)
+}
+function draw(){
+  if (!lastBitmap) return;
+  const w = Math.round(lastBitmap.width * squeeze), h = lastBitmap.height;
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, lastBitmap);
+  gl.uniform1i(U("uMode"), mode);
+  gl.uniform1i(U("uCurve"), CURVES[(state?.settings.gamma || "cine4").toLowerCase()] ?? 0);
+  gl.uniform1f(U("uGain"), state ? eiGain() : 1);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  drawOverlay(w, h);
+}
+
+// ---------- overlay: guides, AF point ----------
+const ov = $("overlay"), ctx = ov.getContext("2d");
+let afPoint = null;
+function drawOverlay(w, h){
+  ov.width = w; ov.height = h; ctx.clearRect(0,0,w,h);
+  if (guides) {
+    ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 1;
+    const sh = Math.min(h, w/2.39); ctx.strokeRect(0.5, (h-sh)/2+0.5, w-1, sh-1);
+    ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.strokeRect(w*0.035, h*0.035, w*0.93, h*0.93);
+  }
+  const af = state?.telemetry?.af;
+  const p = af?.sent || afPoint;
+  if (p) { ctx.strokeStyle = af?.status === "sent" ? "#34c759" : "#ffb000"; ctx.lineWidth = 2;
+    ctx.strokeRect(p[0]*w-12, p[1]*h-12, 24, 24); }
+}
+ov.addEventListener("click", async (e) => {
+  const r = ov.getBoundingClientRect();
+  afPoint = [(e.clientX - r.left)/r.width, (e.clientY - r.top)/r.height];
+  await post("/api/af/point", { u: afPoint[0], v: afPoint[1] });
+});
+
+// ---------- networking ----------
+async function post(url, body){ const r = await fetch(url, { method: "POST", headers: {"content-type":"application/json"}, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) { const t = await r.text(); banner(t); throw new Error(t); } return r.json(); }
+function banner(msg){ const b = $("banner"); b.textContent = msg; b.style.display = msg ? "block" : "none"; }
+
+async function loadState(){
+  state = await (await fetch("/api/state")).json();
+  setZones(state.zones);
+  for (const k of ["fps","angle","gamma","ei_base","squeeze"]) $(k).value = state.settings[k];
+  $("mains").value = state.settings.mains_hz || 0;
+  $("ei").value = state.settings.ei ?? "";
+  $("guides").value = String(state.settings.guides); $("ai_af").value = String(state.settings.ai_af);
+  squeeze = Number(state.settings.squeeze); guides = state.settings.guides;
+}
+async function pushSettings(){
+  const body = { fps: Number($("fps").value), angle: Number($("angle").value), mains_hz: Number($("mains").value),
+    gamma: $("gamma").value, ei_base: $("ei_base").value, squeeze: Number($("squeeze").value),
+    guides: $("guides").value === "true", ai_af: $("ai_af").value === "true" };
+  if ($("ei").value) body.ei = Number($("ei").value);
+  state = await post("/api/settings", body); banner("");
+  squeeze = body.squeeze; guides = body.guides; draw();
+}
+for (const id of ["fps","angle","mains","gamma","ei_base","ei","squeeze","guides","ai_af"]) $(id).addEventListener("change", () => pushSettings().catch(()=>{}));
+document.querySelectorAll(".views button[data-mode]").forEach(b => b.addEventListener("click", () => {
+  mode = Number(b.dataset.mode); document.querySelectorAll(".views button[data-mode]").forEach(x => x.classList.toggle("on", x === b)); draw(); }));
+$("focusmap").addEventListener("click", () => window.open("/api/view/focusmap.jpg", "_blank"));
+$("recbtn").addEventListener("click", async () => {
+  if (!recording) { await post("/api/record/start"); } else { await post("/api/record/stop"); refreshTakes(); }
+});
+$("preroll").addEventListener("click", async () => { await post("/api/record/start?preroll=true"); });
+$("rackNear").addEventListener("click", () => post("/api/focus/rack", { steps: -150, duration_s: 2 }));
+$("rackFar").addEventListener("click", () => post("/api/focus/rack", { steps: 150, duration_s: 2 }));
+
+function renderTelemetry(t){
+  state.telemetry = t; recording = t.recording;
+  $("rec").textContent = t.recording ? `REC ${t.take_frames}` : "STBY"; $("rec").classList.toggle("rec", t.recording);
+  $("recbtn").textContent = t.recording ? "⏹ Stop" : "⏺ Record";
+  $("tc").textContent = `t ${t.t.toFixed(2)}`;
+  banner(t.pdaf_ok === false ? t.pdaf_message : "");
+  const rows = [["Shutter", `${t.shutter} (${t.effective_angle}°)`], ["Flicker-free", t.flicker_free === null ? "off" : (t.flicker_free ? "yes" : "NO")],
+    ["ISO", t.iso ? `${t.iso} · ${t.conversion_gain}` : "—"], ["Aperture", t.f_number ? `f/${t.f_number}` : "—"],
+    ["Focus", t.focus_mm ? `${(t.focus_mm/1000).toFixed(2)} m` : "—"], ["Clipped", t.clipping ? `${(t.clipping.clipped*100).toFixed(1)}%` : "—"],
+    ["Crushed", t.clipping ? `${(t.clipping.crushed*100).toFixed(1)}%` : "—"], ["Pre-roll buffered", `${t.preroll_s}s`],
+    ["AI AF", t.af ? `${t.af.status}${t.af.part ? " · " + t.af.part : ""}` : "off"]];
+  $("telemetry").innerHTML = rows.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  if (t.zones) $("zonebar").innerHTML = state.zones.map(z => `<div style="flex:${t.zones[z.label]||0};background:rgb(${z.rgb})"></div>`).join("");
+}
+async function refreshTakes(){
+  const takes = await (await fetch("/api/takes")).json();
+  $("takes").innerHTML = takes.length ? takes.map(t => `${t.uid} · ${t.duration_s?.toFixed(1)}s (pre-roll ${t.preroll_s?.toFixed(1)}s) · ${t.settings.shutter}`).join("<br>") : "none yet";
+}
+function refreshScopes(){ for (const k of ["waveform","vectorscope","parade","histogram"]) $("sc-"+k).src = `/api/scope/${k}.png?ts=${Date.now()}`; }
+
+function connect(){
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+  ws.binaryType = "blob";
+  ws.onopen = () => { $("link").textContent = "live"; };
+  ws.onclose = () => { $("link").textContent = "reconnecting…"; setTimeout(connect, 1000); };
+  ws.onmessage = async (ev) => {
+    if (typeof ev.data === "string") { const m = JSON.parse(ev.data); if (m.telemetry) renderTelemetry(m.telemetry); return; }
+    lastBitmap = await createImageBitmap(ev.data); draw();
+  };
+}
+loadState().then(() => { connect(); refreshTakes(); setInterval(refreshScopes, 700); });
+window.__desk = { get state(){ return state; }, setMode(m){ mode = m; draw(); } };
+</script>
+</body>
+</html>
