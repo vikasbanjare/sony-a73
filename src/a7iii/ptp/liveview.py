@@ -1,7 +1,10 @@
 """Live-view object (handle 0xFFFFC002) packing/parsing - roadmap §10.2.
 
-Layout as specified in the roadmap (UNVERIFIED on a real ILCE-7M3; the
-simulator uses exactly this so both sides agree):
+Real ILCE-7M3 (verified over USB PC Remote): u32 offset to JPEG, u32 JPEG size,
+then Sony info data, then the JPEG at that offset (e.g. 1012 / 45568, 1024x576).
+The info block isn't decoded yet, so real frames give no focus_frames.
+
+Simulator layout from the roadmap (only the simulator uses it):
 
   CommonHeader (8 bytes): 0xFF, payload type, sequence (u16), timestamp ms (u32)
   type 0x01 (JPEG):  jpeg size (u32), padding size (u32), jpeg bytes, padding
@@ -59,6 +62,10 @@ def pack_liveview(jpeg: bytes, frames: list[FocusFrame], sequence: int, timestam
 
 
 def parse_liveview(blob: bytes) -> LiveView:
+    if len(blob) >= 8:
+        start, size = struct.unpack_from("<II", blob)
+        if size and 8 <= start and start + size <= len(blob) and blob[start:start + 2] == b"\xff\xd8":
+            return LiveView(0, 0, blob[start:start + size], [])
     off = 0
     seq = ts = 0
     jpeg = None

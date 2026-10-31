@@ -75,6 +75,30 @@ class UsbTransport:
         self._out = ep(usb.util.ENDPOINT_OUT, usb.util.ENDPOINT_TYPE_BULK)
         self._in = ep(usb.util.ENDPOINT_IN, usb.util.ENDPOINT_TYPE_BULK)
         self._max = max_packet
+        self._recover_if_stalled()
+
+    def _recover_if_stalled(self) -> None:
+        """A run that died mid-transfer leaves the pipe stuck, seen two ways on a real
+        ILCE-7M3: halted endpoint (status 0x2009, Errno 32 on write) or an unread
+        reply still queued (status OK, Errno 60 on write). Fix with PTP class
+        requests and reads only - no camera settings are touched."""
+        import struct
+        import time
+
+        import usb.core
+
+        ifn = self._intf.bInterfaceNumber
+        status = bytes(self._dev.ctrl_transfer(0xA1, 0x67, 0, ifn, 64))  # Get Device Status
+        if len(status) < 4 or struct.unpack_from("<H", status, 2)[0] != 0x2001:
+            for e in (self._out, self._in):
+                e.clear_halt()
+            self._dev.ctrl_transfer(0x21, 0x66, 0, ifn, None)  # Device Reset Request
+            time.sleep(0.5)
+        for _ in range(64):  # ponytail: bounded drain, ~32 MB max of stale data
+            try:
+                self._in.read(self._max, timeout=200)
+            except usb.core.USBTimeoutError:
+                break
 
     def write(self, data: bytes) -> None:
         self._out.write(data)

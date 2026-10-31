@@ -89,6 +89,18 @@ def test_error_response_raises():
         SonyCamera(t).set_prop("f_number", 280)
 
 
+def test_parse_real_sony_liveview_layout():
+    from a7iii.ptp.liveview import FocusFrame, pack_liveview, parse_liveview
+
+    jpeg = b"\xff\xd8" + b"img" * 50 + b"\xff\xd9"
+    # header bytes seen on a real ILCE-7M3: offset 1012, then info block, JPEG at offset
+    blob = struct.pack("<II", 1012, len(jpeg)) + b"\x55" * 1004 + jpeg
+    assert parse_liveview(blob).jpeg == jpeg
+    # simulator layout still parses
+    sim = parse_liveview(pack_liveview(jpeg, [FocusFrame(0.5, 0.5, 0.1, 0.1, "focused")], 7, 99))
+    assert sim.jpeg == jpeg and sim.sequence == 7 and len(sim.focus_frames) == 1
+
+
 def test_liveview_jpeg_extraction():
     jpeg = b"\xff\xd8" + b"img" + b"\xff\xd9"
     blob = b"\x00" * 8 + struct.pack("<II", len(jpeg), 0) + jpeg + b"\x00" * 4
