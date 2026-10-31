@@ -13,6 +13,8 @@ dependencies = ["numpy>=1.24"]
 [project.optional-dependencies]
 color = ["scipy>=1.10"]
 usb = ["pyusb>=1.2"]
+ai = ["ultralytics>=8.3"]
+ingest = ["xxhash>=3"]
 dev = ["pytest>=7", "scipy>=1.10"]
 
 [project.scripts]

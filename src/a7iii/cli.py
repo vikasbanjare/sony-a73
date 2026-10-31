@@ -122,6 +122,20 @@ def cmd_match(a) -> int:
     return 0
 
 
+def cmd_offload(a) -> int:
+    from .ingest import offload
+
+    rep = offload(a.source, a.dest, algorithm=a.algorithm, progress=None if a.quiet else lambda rel: print(f"  {rel}"))
+    copied = sum(s == "copied" for f in rep.files for s in f.status.values())
+    skipped = sum(s == "skipped" for f in rep.files for s in f.status.values())
+    print(f"{len(rep.files)} files, {copied} copies made, {skipped} already present ({rep.algorithm})")
+    for p in rep.problems():
+        print(f"PROBLEM: {p}")
+    for m in rep.manifests:
+        print(f"manifest: {m}")
+    return 0 if rep.ok else 3
+
+
 def cmd_readout(a) -> int:
     for mode, ms in READOUT_MS.items():
         print(f"{mode:14s} {ms:5.1f} ms")
@@ -184,6 +198,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--no-residual", action="store_true", help="skip the OKLab RBF stage")
     s.add_argument("--out", default="a7iii_match.cube")
     s.set_defaults(func=cmd_match)
+
+    s = sub.add_parser("offload", help="verified copy of a card to one or more destinations")
+    s.add_argument("source")
+    s.add_argument("dest", nargs="+")
+    s.add_argument("--algorithm", choices=["xxh3_128", "sha256", "blake2b"])
+    s.add_argument("--quiet", action="store_true")
+    s.set_defaults(func=cmd_offload)
 
     s = sub.add_parser("readout", help="rolling-shutter readout times")
     s.set_defaults(func=cmd_readout)

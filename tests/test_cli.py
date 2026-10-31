@@ -31,3 +31,13 @@ def test_cli_match(tmp_path, capsys):
                  "--size", "17", "--out", str(out)]) == 0
     assert out.exists() and out.with_suffix(".dctl").exists()
     assert "final mean" in capsys.readouterr().out
+
+
+def test_cli_offload(tmp_path, capsys):
+    (tmp_path / "card").mkdir()
+    (tmp_path / "card" / "a.MP4").write_bytes(b"x" * 100)
+    args = ["offload", str(tmp_path / "card"), str(tmp_path / "d1"), str(tmp_path / "d2"), "--algorithm", "sha256", "--quiet"]
+    assert main(args) == 0
+    assert "2 copies made" in capsys.readouterr().out
+    assert main(args) == 0
+    assert "2 already present" in capsys.readouterr().out
