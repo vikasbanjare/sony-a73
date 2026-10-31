@@ -921,7 +921,7 @@ def s_tier4(ctx: Ctx):
 
 
 def run_all(out_dir: str | Path, only: list[str] | None = None, progress: Callable[[Result], None] | None = None) -> list[Result]:
-    out = Path(out_dir)
+    out = Path(out_dir).resolve()  # absolute: artifact paths (e.g. take files) are compared against it
     out.mkdir(parents=True, exist_ok=True)
     results: list[Result] = []
     for key, title, ref, tier, criterion, fn in _REGISTRY:
