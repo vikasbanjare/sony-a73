@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "a7iii-enhanced-suite"
+version = "0.1.0"
+description = "Companion tooling for the Sony a7 III (ILCE-7M3): PTP control, cinema math, color science and guarded NVRAM service tooling."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "scipy>=1.10", "pillow>=10"]
+
+[project.optional-dependencies]
+color = ["scipy>=1.10"]
+usb = ["pyusb>=1.2"]
+ai = ["ultralytics>=8.3"]
+ingest = ["xxhash>=3"]
+desk = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pillow>=10"]
+capture = ["opencv-python>=4.8"]
+dev = ["pytest>=7", "scipy>=1.10", "fastapi>=0.110", "uvicorn[standard]>=0.29", "pillow>=10", "httpx>=0.27"]
+
+[project.scripts]
+a7iii = "a7iii.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"a7iii.desk" = ["static/*"]
+"a7iii.cloud" = ["schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

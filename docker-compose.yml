@@ -1,0 +1,18 @@
+# Control Desk (simulated camera by default) + cloud sync API.
+# For real hardware run the desk natively instead: USB PTP and capture cards are
+# awkward to pass into containers (see README "Hardware").
+services:
+  desk:
+    build: .
+    ports: ["8000:8000"]
+    volumes: ["desk-data:/data"]
+  cloud:
+    build: .
+    command: ["a7iii", "cloud", "--db", "/data/sync.sqlite", "--port", "8080"]
+    environment:
+      A7III_SYNC_TOKEN: ${A7III_SYNC_TOKEN:-change-me}
+    ports: ["8080:8080"]
+    volumes: ["cloud-data:/data"]
+volumes:
+  desk-data:
+  cloud-data:

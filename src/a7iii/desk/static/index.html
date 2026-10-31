@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A7III Control Desk</title>
+<!-- installable on an iPhone home screen: Share -> Add to Home Screen opens it full-screen -->
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Control Desk">
+<meta name="theme-color" content="#000000">
+<style>
+  /* iOS dark-mode system palette */
+  :root {
+    --bg:#000; --group:#1c1c1e; --group2:#2c2c2e; --fill:rgba(118,118,128,.24); --sep:rgba(84,84,88,.6);
+    --label:#fff; --label2:rgba(235,235,245,.6); --label3:rgba(235,235,245,.3);
+    --tint:#0a84ff; --red:#ff453a; --green:#30d158; --orange:#ff9f0a;
+    /* AA-safe variants: tinted text on grey fills, white text on filled buttons */
+    --tint-text:#64b5ff; --tint-fill:#0062cc; --red-fill:#d70015;
+    --r:12px;
+    color-scheme: dark;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--label); font:15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+
+  /* translucent nav bar */
+  header { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:8px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background:rgba(22,22,24,.72); backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:.5px solid var(--sep); }
+  header h1 { font-size:17px; font-weight:600; margin:0 auto 0 0; letter-spacing:-.01em; }
+  .pill { padding:3px 10px; border-radius:999px; background:var(--fill); color:var(--label2); font-size:13px; font-weight:500; font-variant-numeric:tabular-nums; }
+  .pill.rec { background:var(--red-fill); color:#fff; }
+  #link.live { color:var(--green); }
+
+  main { display:grid; grid-template-columns:1fr 360px; gap:20px; padding:16px; max-width:1500px; margin:0 auto; }
+  #stage { position:relative; background:#000; display:flex; align-items:center; justify-content:center; min-height:300px; border-radius:16px; overflow:hidden; }
+  #video, #overlay { width:100%; height:auto; display:block; }
+  #overlay { position:absolute; inset:0; margin:auto; cursor:crosshair; }
+  #banner { position:absolute; top:12px; left:50%; transform:translateX(-50%); max-width:90%; background:rgba(215,0,21,.94);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); color:#fff; padding:10px 16px; border-radius:var(--r); font-weight:600; font-size:14px; display:none; }
+
+  /* toolbar: segmented control + actions */
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .views { display:flex; padding:2px; border-radius:9px; background:var(--fill); }
+  .views button { background:transparent; color:var(--label); padding:6px 14px; border-radius:7px; font-size:13px; font-weight:500; }
+  .views button.on { background:#636366; box-shadow:0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04); }
+
+  button { font:inherit; font-size:15px; font-weight:500; background:var(--fill); color:var(--tint-text); border:0; border-radius:10px; padding:8px 14px; cursor:pointer; transition:opacity .15s, transform .15s; }
+  button:active { opacity:.6; transform:scale(.97); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline:2px solid var(--tint); outline-offset:2px; }
+  button.primary { background:var(--tint-fill); color:#fff; }
+  button.danger { background:var(--red-fill); color:#fff; font-weight:600; }
+  .spacer { flex:1; }
+
+  /* Settings-style inset grouped lists */
+  aside { display:flex; flex-direction:column; gap:22px; }
+  section h2 { font-size:13px; font-weight:400; text-transform:uppercase; letter-spacing:.02em; color:var(--label2); margin:0 0 6px 16px; }
+  .group { background:var(--group); border-radius:var(--r); padding-left:16px; overflow:hidden; }
+  .group > label, .group > .item { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:44px; padding:6px 16px 6px 0; }
+  .group > * + * { border-top:.5px solid var(--sep); }
+  select, input { appearance:none; -webkit-appearance:none; background:transparent; color:var(--label2); border:0; font:inherit; text-align:right; padding:4px 0; max-width:60%; }
+  select { padding-right:18px; cursor:pointer; text-align-last:right;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M1 5l4-4 4 4M1 9l4 4 4-4' fill='none' stroke='%23ebebf599' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") right center no-repeat; }
+  select option { background:var(--group2); color:var(--label); }
+  input::placeholder { color:var(--label3); }
+  .item.actions { justify-content:flex-start; gap:8px; }
+  .item.actions button { flex:1; }
+
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  td { padding:11px 16px 11px 0; } td:last-child { text-align:right; color:var(--label2); }
+  tr + tr td { border-top:.5px solid var(--sep); }
+  .group.pad { padding:10px; }
+  .scopes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .scopes img { width:100%; aspect-ratio:4/3; object-fit:contain; background:#000; image-rendering:pixelated; border-radius:8px; }
+  .zones { display:flex; height:8px; border-radius:999px; overflow:hidden; margin-top:14px; background:var(--fill); }
+  /* JS emits <i>,<span> pairs as siblings: two dot+label pairs per row */
+  .legend { display:grid; grid-template-columns:10px 1fr 10px 1fr; align-items:center; gap:6px 8px; font-size:12px; color:var(--label2); margin-top:12px; }
+  .legend i { width:10px; height:10px; border-radius:50%; }
+  #takes { max-height:220px; overflow:auto; font-size:13px; color:var(--label2); padding:12px 16px 12px 0; }
+  #takes .take + .take { margin-top:10px; }
+  #takes b { color:var(--label); font-weight:500; }
+  #takes .path { color:var(--label3); word-break:break-all; font-size:12px; }
+
+  /* iPhone / narrow: single column */
+  @media (max-width: 900px) {
+    main { grid-template-columns:1fr; padding:12px 12px calc(12px + env(safe-area-inset-bottom)); gap:16px; }
+    #stage { border-radius:12px; min-height:0; }
+    .views { width:100%; } .views button { flex:1; }
+    .toolbar > button { flex:1; }
+    .spacer { display:none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Control Desk</h1>
+  <span id="rec" class="pill">STBY</span>
+  <span id="tc" class="pill">t 0.00</span>
+  <span id="link" class="pill">connecting…</span>
+</header>
+<main>
+  <div>
+    <div id="stage">
+      <canvas id="video"></canvas>
+      <canvas id="overlay"></canvas>
+      <div id="banner"></div>
+    </div>
+    <div class="toolbar">
+      <div class="views" role="tablist" aria-label="View">
+        <button data-mode="0" class="on">Normal</button>
+        <button data-mode="1">False colour</button>
+        <button data-mode="2">Cine EI</button>
+      </div>
+      <button id="focusmap" title="Green = sharp. Real camera: sharpness; simulator: depth of field">Focus map</button>
+      <span class="spacer"></span>
+      <button id="preroll" class="primary">Pre-roll</button>
+      <button id="recbtn" class="danger">⏺ Record</button>
+    </div>
+    <div class="zones" id="zonebar"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <aside>
+    <section>
+      <h2>Exposure</h2>
+      <div class="group">
+        <label>Frame rate <select id="fps"><option>23.976</option><option>25</option><option>29.97</option><option>50</option><option>59.94</option></select></label>
+        <label>Shutter angle <input id="angle" type="number" value="180" step="0.1" min="1" max="360"></label>
+        <label>Anti-flicker <select id="mains"><option value="50">50 Hz</option><option value="60">60 Hz</option><option value="0">Off</option></select></label>
+        <label>Gamma <select id="gamma"><option>Cine4</option><option>HLG3</option><option>S-Log2</option><option>S-Log3</option></select></label>
+        <label>Native ISO <select id="ei_base"><option value="low">Low (LCG)</option><option value="high">High (HCG)</option></select></label>
+        <label>Exposure index <input id="ei" type="number" step="1" placeholder="= ISO"></label>
+      </div>
+    </section>
+    <section>
+      <h2>Monitoring</h2>
+      <div class="group">
+        <label>Anamorphic <select id="squeeze"><option value="1">1.0× (spherical)</option><option>1.33</option><option>1.5</option><option>1.6</option><option>1.8</option><option>2.0</option></select></label>
+        <label>Guides <select id="guides"><option value="true">On</option><option value="false">Off</option></select></label>
+        <label>Frame lines <select id="framelines"><option value="0">Off</option><option value="2.39">2.39:1</option><option value="2.35">2.35:1</option><option value="1.85">1.85:1</option><option value="1.7778">16:9</option><option value="1.3333">4:3</option><option value="1">1:1</option><option value="0.8">4:5</option><option value="0.5625">9:16</option></select></label>
+        <label>Safety zone <select id="safety"><option value="0">Off</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="0.93">93%</option><option value="0.95">95%</option></select></label>
+        <label>Centre marker <select id="centre"><option value="0">Off</option><option value="1">On</option></select></label>
+        <label>Zebra <select id="zebra"><option value="0">Off</option><option value="70">70%</option><option value="80">80%</option><option value="90">90%</option><option value="95">95%</option><option value="100">100%+</option></select></label>
+        <label>Peaking <select id="peaking"><option value="0">Off</option><option value="0.5">Low</option><option value="0.35">Mid</option><option value="0.22">High</option></select></label>
+        <label>AI subject AF <select id="ai_af"><option value="false">Off</option><option value="true">On</option></select></label>
+        <div class="item actions"><button id="rackNear">Rack near</button><button id="rackFar">Rack far</button></div>
+      </div>
+    </section>
+    <section>
+      <h2>Telemetry</h2>
+      <div class="group"><table id="telemetry"></table></div>
+    </section>
+    <section>
+      <h2>Scopes</h2>
+      <div class="group pad">
+        <div class="scopes">
+          <img id="sc-waveform" alt="waveform"><img id="sc-vectorscope" alt="vectorscope">
+          <img id="sc-parade" alt="RGB parade"><img id="sc-histogram" alt="histogram">
+        </div>
+      </div>
+    </section>
+    <section><h2>Takes</h2><div class="group"><div id="takes">none yet</div></div></section>
+  </aside>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const CURVES = { "cine4": 0, "s-log2": 1, "s-log3": 2, "hlg3": 3 };
+let state = null, mode = 0, squeeze = 1, recording = false, guides = true;
+
+// ---------- WebGL ----------
+const canvas = $("video");
+const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
+const VS = `#version 300 es
+in vec2 p; out vec2 uv;
+void main(){ uv = vec2((p.x+1.)/2., (1.-p.y)/2.); gl_Position = vec4(p,0.,1.); }`;
+const FS = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o;
+uniform sampler2D tex; uniform int uMode; uniform int uCurve; uniform float uGain;
+uniform float uZebra; uniform float uPeak; uniform vec2 uTexel; // FX-style assists, 0 = off
+uniform float uBounds[9]; uniform vec3 uColors[10];
+float decode(float y){
+  if (uCurve == 2) { // S-Log3
+    return y >= 171.2102946929/1023. ? pow(10., (y*1023.-420.)/261.5)*0.19-0.01 : (y*1023.-95.)*0.01125/(171.2102946929-95.);
+  } else if (uCurve == 1) { // S-Log2
+    float f = (y*1023.-64.)/876.;
+    float x = f >= 0.030001222851889303 ? pow(10., (f-0.646596)/0.432699)-0.037584 : (f-0.030001222851889303)/5.;
+    return x*0.9*219./155.;
+  } else if (uCurve == 3) { // HLG (BT.2100), reflectance scale
+    float a=0.17883277, b=0.28466892, c=0.55991073;
+    float e = y <= 0.5 ? y*y/3. : (exp((y-c)/a)+b)/12.;
+    return e/0.26496256;
+  }
+  return y < 0.081 ? y/4.5 : pow((y+0.099)/1.099, 1./0.45); // Rec.709
+}
+vec3 dec3(vec3 s){ return vec3(decode(s.r), decode(s.g), decode(s.b)); }
+float tonemap(float x){ return x <= 0.6 ? x : 0.6 + 0.4*(1.-exp(-(x-0.6)/0.4)); }
+float enc709(float x){ x = max(x,0.); return x < 0.018 ? 4.5*x : 1.099*pow(x,0.45)-0.099; }
+void main(){
+  vec3 s = texture(tex, uv).rgb;
+  if (uMode == 1) {
+    float Y = dot(dec3(s), vec3(0.2126,0.7152,0.0722));
+    float ev = log2(max(Y,1e-6)/0.18);
+    int z = 0; for (int i=0;i<9;i++){ if (ev >= uBounds[i]) z = i+1; }
+    o = vec4(uColors[z], 1.);
+  } else if (uMode == 2) {
+    vec3 l = dec3(s)*uGain;
+    o = vec4(enc709(tonemap(l.r)), enc709(tonemap(l.g)), enc709(tonemap(l.b)), 1.);
+  } else { o = vec4(s,1.); }
+  if (uZebra > 0. && uMode != 1) { // stripes where the displayed level is at/above the zebra IRE
+    if (dot(o.rgb, vec3(0.2126,0.7152,0.0722)) >= uZebra && mod(gl_FragCoord.x + gl_FragCoord.y, 10.) < 4.) o.rgb = vec3(0.);
+  }
+  if (uPeak > 0.) { // Sobel on source luma, painted red like the FX3's peaking
+    vec3 w = vec3(0.2126,0.7152,0.0722); vec2 t = uTexel;
+    float tl=dot(texture(tex,uv+vec2(-t.x,-t.y)).rgb,w), tc=dot(texture(tex,uv+vec2(0.,-t.y)).rgb,w), tr=dot(texture(tex,uv+vec2(t.x,-t.y)).rgb,w);
+    float ml=dot(texture(tex,uv+vec2(-t.x,0.)).rgb,w), mr=dot(texture(tex,uv+vec2(t.x,0.)).rgb,w);
+    float bl=dot(texture(tex,uv+vec2(-t.x,t.y)).rgb,w), bc=dot(texture(tex,uv+vec2(0.,t.y)).rgb,w), br=dot(texture(tex,uv+vec2(t.x,t.y)).rgb,w);
+    float gx = (tr+2.*mr+br)-(tl+2.*ml+bl), gy = (bl+2.*bc+br)-(tl+2.*tc+tr);
+    if (length(vec2(gx,gy)) > uPeak) o.rgb = vec3(1.,0.15,0.1);
+  }
+}`;
+function compile(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+const U = (n) => gl.getUniformLocation(prog, n);
+let lastBitmap = null;
+
+function setZones(zones){
+  const bounds = zones.slice(1).map(z => z.from);
+  gl.uniform1fv(U("uBounds"), new Float32Array(bounds));
+  gl.uniform3fv(U("uColors"), new Float32Array(zones.flatMap(z => z.rgb.map(v => v/255))));
+  $("legend").innerHTML = zones.map(z => `<i style="background:rgb(${z.rgb})"></i><span>${z.label}</span>`).join("");
+}
+function eiGain(){
+  const s = state.settings, iso = state.telemetry.recording_iso;
+  if (!s.ei || !iso) return 1;
+  return s.ei / iso;  // monitor offset = log2(EI / recording ISO)
+}
+function draw(){
+  if (!lastBitmap) return;
+  const w = Math.round(lastBitmap.width * squeeze), h = lastBitmap.height;
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, lastBitmap);
+  gl.uniform1i(U("uMode"), mode);
+  gl.uniform1i(U("uCurve"), CURVES[(state?.settings.gamma || "cine4").toLowerCase()] ?? 0);
+  gl.uniform1f(U("uGain"), state ? eiGain() : 1);
+  gl.uniform1f(U("uZebra"), Number(assist.zebra) / 100);
+  gl.uniform1f(U("uPeak"), Number(assist.peaking));
+  gl.uniform2f(U("uTexel"), 1 / lastBitmap.width, 1 / lastBitmap.height);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  drawOverlay(w, h);
+}
+
+// ---------- overlay: guides, AF point ----------
+const ov = $("overlay"), ctx = ov.getContext("2d");
+// display-only assists, remembered per browser
+const ASSIST_IDS = ["framelines", "safety", "centre", "zebra", "peaking"];
+const assist = { framelines: "2.39", safety: "0.93", centre: "0", zebra: "0", peaking: "0" };
+try { Object.assign(assist, JSON.parse(localStorage.getItem("a7iii.assist") || "{}")); } catch {}
+for (const id of ASSIST_IDS) { $(id).value = assist[id];
+  $(id).addEventListener("change", () => { assist[id] = $(id).value;
+    try { localStorage.setItem("a7iii.assist", JSON.stringify(assist)); } catch {} draw(); }); }
+let afPoint = null;
+function drawOverlay(w, h){
+  ov.width = w; ov.height = h; ctx.clearRect(0,0,w,h);
+  if (guides) {
+    const ar = Number(assist.framelines);
+    if (ar) { // frame lines: matte outside the target aspect, like the FX3's Frame Lines
+      const fw = Math.min(w, h*ar), fh = Math.min(h, w/ar), x = (w-fw)/2, y = (h-fh)/2;
+      ctx.fillStyle = "rgba(0,0,0,.45)";
+      ctx.fillRect(0,0,w,y); ctx.fillRect(0,y+fh,w,h-y-fh); ctx.fillRect(0,y,x,fh); ctx.fillRect(x+fw,y,w-x-fw,fh);
+      ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1; ctx.strokeRect(x+0.5, y+0.5, fw-1, fh-1);
+    }
+    const s = Number(assist.safety);
+    if (s) { ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.setLineDash([6,4]);
+      ctx.strokeRect(w*(1-s)/2, h*(1-s)/2, w*s, h*s); ctx.setLineDash([]); }
+    if (assist.centre === "1") { ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 1; ctx.beginPath();
+      ctx.moveTo(w/2-14,h/2); ctx.lineTo(w/2+14,h/2); ctx.moveTo(w/2,h/2-14); ctx.lineTo(w/2,h/2+14); ctx.stroke(); }
+  }
+  const af = state?.telemetry?.af;
+  const p = af?.sent || afPoint;
+  if (p) { ctx.strokeStyle = af?.status === "sent" ? "#30d158" : "#ff9f0a"; ctx.lineWidth = 2;
+    ctx.strokeRect(p[0]*w-12, p[1]*h-12, 24, 24); }
+}
+ov.addEventListener("click", async (e) => {
+  const r = ov.getBoundingClientRect();
+  afPoint = [(e.clientX - r.left)/r.width, (e.clientY - r.top)/r.height];
+  await post("/api/af/point", { u: afPoint[0], v: afPoint[1] });
+});
+
+// ---------- networking ----------
+async function post(url, body){ const r = await fetch(url, { method: "POST", headers: {"content-type":"application/json"}, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) { const t = await r.text(); banner(t); throw new Error(t); } return r.json(); }
+function banner(msg){ const b = $("banner"); b.textContent = msg; b.style.display = msg ? "block" : "none"; }
+
+async function loadState(){
+  state = await (await fetch("/api/state")).json();
+  setZones(state.zones);
+  for (const k of ["fps","angle","gamma","ei_base","squeeze"]) $(k).value = state.settings[k];
+  $("mains").value = state.settings.mains_hz || 0;
+  $("ei").value = state.settings.ei ?? "";
+  $("guides").value = String(state.settings.guides); $("ai_af").value = String(state.settings.ai_af);
+  squeeze = Number(state.settings.squeeze); guides = state.settings.guides;
+}
+async function pushSettings(){
+  const body = { fps: Number($("fps").value), angle: Number($("angle").value), mains_hz: Number($("mains").value),
+    gamma: $("gamma").value, ei_base: $("ei_base").value, squeeze: Number($("squeeze").value),
+    guides: $("guides").value === "true", ai_af: $("ai_af").value === "true" };
+  if ($("ei").value) body.ei = Number($("ei").value);
+  state = await post("/api/settings", body); banner("");
+  squeeze = body.squeeze; guides = body.guides; draw();
+}
+for (const id of ["fps","angle","mains","gamma","ei_base","ei","squeeze","guides","ai_af"]) $(id).addEventListener("change", () => pushSettings().catch(()=>{}));
+document.querySelectorAll(".views button[data-mode]").forEach(b => b.addEventListener("click", () => {
+  mode = Number(b.dataset.mode); document.querySelectorAll(".views button[data-mode]").forEach(x => x.classList.toggle("on", x === b)); draw(); }));
+$("focusmap").addEventListener("click", () => window.open("/api/view/focusmap.jpg", "_blank"));
+$("recbtn").addEventListener("click", async () => {
+  if (!recording) { await post("/api/record/start"); } else { await post("/api/record/stop"); refreshTakes(); }
+});
+$("preroll").addEventListener("click", async () => { await post("/api/record/start?preroll=true"); });
+$("rackNear").addEventListener("click", () => post("/api/focus/rack", { steps: -150, duration_s: 2 }));
+$("rackFar").addEventListener("click", () => post("/api/focus/rack", { steps: 150, duration_s: 2 }));
+
+function renderTelemetry(t){
+  state.telemetry = t; recording = t.recording;
+  $("rec").textContent = t.recording ? `REC ${t.take_frames}` : "STBY"; $("rec").classList.toggle("rec", t.recording);
+  $("recbtn").textContent = t.recording ? "⏹ Stop" : "⏺ Record";
+  $("tc").textContent = `t ${t.t.toFixed(2)}`;
+  banner(t.pdaf_ok === false ? t.pdaf_message : "");
+  const rows = [["Shutter", `${t.shutter} (${t.effective_angle}°)`], ["Flicker-free", t.flicker_free === null ? "off" : (t.flicker_free ? "yes" : "NO")],
+    ["ISO", t.iso ? `${t.iso} · ${t.conversion_gain}` : "—"], ["Aperture", t.f_number ? `f/${t.f_number}` : "—"],
+    ["Focus", t.focus_mm ? `${(t.focus_mm/1000).toFixed(2)} m` : "—"], ["Clipped", t.clipping ? `${(t.clipping.clipped*100).toFixed(1)}%` : "—"],
+    ["Crushed", t.clipping ? `${(t.clipping.crushed*100).toFixed(1)}%` : "—"], ["Pre-roll buffered", `${t.preroll_s}s`],
+    ["AI AF", t.af ? `${t.af.status}${t.af.part ? " · " + t.af.part : ""}` : "off"]];
+  $("telemetry").innerHTML = rows.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  if (t.zones) $("zonebar").innerHTML = state.zones.map(z => `<div style="flex:${t.zones[z.label]||0};background:rgb(${z.rgb})"></div>`).join("");
+}
+async function refreshTakes(){
+  const takes = await (await fetch("/api/takes")).json();
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  $("takes").innerHTML = takes.length ? takes.map(t => `<div class="take"><b>${esc(t.uid)}</b> · ${t.duration_s?.toFixed(1)}s` +
+      ` (pre-roll ${t.preroll_s?.toFixed(1)}s) · ${esc(t.settings.shutter)}` +
+      (t.settings.camera_card ? `<br>Full-quality clip: on the camera's SD card` : "") +
+      `<br><span class="path">Reference copy: ${esc(t.media_path)}</span></div>`).join("")
+    : "none yet. Record presses the camera's own record button: the clip goes to its SD card, and a low-res reference copy is kept here.";
+}
+function refreshScopes(){ for (const k of ["waveform","vectorscope","parade","histogram"]) $("sc-"+k).src = `/api/scope/${k}.png?ts=${Date.now()}`; }
+
+function connect(){
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+  ws.binaryType = "blob";
+  ws.onopen = () => { $("link").textContent = "● Live"; $("link").classList.add("live"); };
+  ws.onclose = () => { $("link").textContent = "Reconnecting…"; $("link").classList.remove("live"); setTimeout(connect, 1000); };
+  ws.onmessage = async (ev) => {
+    if (typeof ev.data === "string") { const m = JSON.parse(ev.data); if (m.telemetry) renderTelemetry(m.telemetry); return; }
+    lastBitmap = await createImageBitmap(ev.data); draw();
+  };
+}
+loadState().then(() => { connect(); refreshTakes(); setInterval(refreshScopes, 700); });
+window.__desk = { get state(){ return state; }, setMode(m){ mode = m; draw(); } };
+</script>
+</body>
+</html>

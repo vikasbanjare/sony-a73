@@ -1,0 +1,14 @@
+[Unit]
+Description=A7III Control Desk (camera over USB PC Remote, UI for phones on the LAN)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__REPO__
+ExecStart=__REPO__/.venv/bin/a7iii desk --ptp --wait --host 0.0.0.0 --port 8000 --fps 6 --db __REPO__/data/desk.sqlite --media __REPO__/data/takes
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

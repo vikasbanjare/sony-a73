@@ -1,0 +1,2 @@
+# Sony cameras (vendor 054c) readable/writable by any user, so the Desk needs no sudo
+SUBSYSTEM=="usb", ATTR{idVendor}=="054c", MODE="0666"
