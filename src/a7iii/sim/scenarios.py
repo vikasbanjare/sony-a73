@@ -679,7 +679,7 @@ def s_preroll(ctx: Ctx):
     if ffmpeg_available():
         v = probe(rec["media_path"])["streams"][0]
         m |= {"codec": v["codec_name"], "pix_fmt": v["pix_fmt"], "file": Path(rec["media_path"]).name}
-        ctx.artifacts.append(str(Path(rec["media_path"]).relative_to(ctx.out)))
+        ctx.artifacts.append(str(Path(rec["media_path"]).relative_to(Path(ctx.out).resolve())))
     return rec["preroll_s"] >= 1.9 and rec["frames"] == rec["preroll_frames"] + 12, m, \
         "60 frames streamed before the trigger; buffer holds 2 s."
 
