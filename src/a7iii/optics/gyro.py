@@ -95,7 +95,7 @@ def read_gcsv(path: str | Path) -> GcsvLog:
         header[k] = v
         i += 1
     cols = lines[i].split(",")
-    raw = np.array([[float(x) for x in ln.split(",")] for ln in lines[i + 1 :] if ln.strip()])
+    raw = np.array([[float(x) for x in ln.split(",")] for ln in lines[i + 1 :] if ln.strip() and not ln.startswith("#")])
     col = {c: raw[:, j] for j, c in enumerate(cols)}
     tscale = float(header.get("tscale", 1e-3))
     gscale = float(header["gscale"])

@@ -173,6 +173,53 @@ def cmd_cloud(a) -> int:
     return 0
 
 
+def _nvram_backend(a):
+    if a.sim:
+        from .sim.nvram import PersistentSimBackend
+
+        return PersistentSimBackend(a.sim)
+    raise SystemExit(
+        "No hardware Senser backend ships with this project on purpose: writing NVRAM through\n"
+        "unverified service-mode code can brick a body. Use --sim IMAGE to rehearse, and see\n"
+        "docs/ROADMAP_REVIEW.md for what must be verified before a hardware backend is added."
+    )
+
+
+def cmd_nvram(a) -> int:
+    from .nvram import TWEAKS, NvramBackup, NvramService
+
+    if a.action == "tweaks":
+        for t in TWEAKS.values():
+            state = f"{len(t.prop_ids)} props" if t.available else "LOCKED (no verified property ID)"
+            print(f"{t.key:18s} {state:34s} {t.description}")
+        return 0
+    if a.action == "verify":
+        b = NvramBackup.load(a.backup)
+        print(f"OK {b.model} #{b.serial}: {len(b.props)} properties, sha256 {b.sha256}")
+        return 0
+    svc = NvramService(_nvram_backend(a))
+    if a.action == "dump":
+        path = svc.dump().save(a.out)
+        print(f"read-only dump written to {path}")
+        return 0
+    backup = NvramBackup.load(a.backup)
+    if a.action == "apply":
+        writes = svc.plan(a.tweak)
+        report = svc.apply(writes, backup, dry_run=not a.yes)
+    else:  # restore
+        report = svc.restore(backup, dry_run=not a.yes)
+    changes = [w for w in report.planned if w.changes]
+    print(f"{len(changes)} of {len(report.planned)} properties would change")
+    for w in changes[:10]:
+        print(f"  0x{w.prop_id:08x}: {w.old.hex()} -> {w.new.hex()}")
+    if report.dry_run:
+        print("dry run - nothing written. Re-run with --yes to write.")
+    else:
+        print(f"wrote and verified {len(report.written)} properties, committed with sync."
+              " Power-cycle the camera (remove the battery for 10 s).")
+    return 0
+
+
 def cmd_readout(a) -> int:
     for mode, ms in READOUT_MS.items():
         print(f"{mode:14s} {ms:5.1f} ms")
@@ -263,6 +310,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--port", type=int, default=8080)
     s.set_defaults(func=cmd_cloud)
 
+    s = sub.add_parser("nvram", help="guarded service-mode NVRAM tool (backup first, allowlist only)")
+    s.add_argument("action", choices=["tweaks", "dump", "apply", "restore", "verify"])
+    s.add_argument("tweak", nargs="?", help="tweak key for apply (see 'tweaks')")
+    s.add_argument("--sim", metavar="IMAGE", help="use a simulated camera NVRAM image (JSON, created if missing)")
+    s.add_argument("--backup", help="sealed backup JSON (required for apply/restore/verify)")
+    s.add_argument("--out", default=".", help="folder for dump")
+    s.add_argument("--yes", action="store_true", help="actually write (default is a dry run)")
+    s.set_defaults(func=cmd_nvram)
+
     s = sub.add_parser("readout", help="rolling-shutter readout times")
     s.set_defaults(func=cmd_readout)
     return p
@@ -272,7 +328,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except ValueError as e:
+    except (ValueError, PermissionError) as e:  # PermissionError covers refused NVRAM writes
         print(f"error: {e}", file=sys.stderr)
         return 1
 

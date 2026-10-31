@@ -41,3 +41,20 @@ def test_cli_offload(tmp_path, capsys):
     assert "2 copies made" in capsys.readouterr().out
     assert main(args) == 0
     assert "2 already present" in capsys.readouterr().out
+
+
+def test_cli_nvram_rehearsal(tmp_path, capsys):
+    img = str(tmp_path / "img.json")
+    assert main(["nvram", "tweaks"]) == 0
+    assert main(["nvram", "dump", "--sim", img, "--out", str(tmp_path)]) == 0
+    backup = str(next(tmp_path.glob("NVRAM_BACKUP_*.json")))
+    assert main(["nvram", "apply", "languages", "--sim", img, "--backup", backup]) == 0
+    assert "dry run" in capsys.readouterr().out
+    assert main(["nvram", "apply", "languages", "--sim", img, "--backup", backup, "--yes"]) == 0
+    assert "wrote and verified 33" in capsys.readouterr().out
+    assert main(["nvram", "apply", "rec_limit", "--sim", img, "--backup", backup, "--yes"]) == 1
+    assert "no verified property IDs" in capsys.readouterr().err
+    assert main(["nvram", "restore", "--sim", img, "--backup", backup, "--yes"]) == 0
+    import json
+    image = json.loads(open(img).read())
+    assert image["0x010d00b1"] == "02" and image["0x00e80000"] == "a500"  # restored; calibration untouched
