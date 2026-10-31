@@ -78,7 +78,10 @@
   /* JS emits <i>,<span> pairs as siblings: two dot+label pairs per row */
   .legend { display:grid; grid-template-columns:10px 1fr 10px 1fr; align-items:center; gap:6px 8px; font-size:12px; color:var(--label2); margin-top:12px; }
   .legend i { width:10px; height:10px; border-radius:50%; }
-  #takes { max-height:140px; overflow:auto; font-size:13px; color:var(--label2); padding:12px 16px 12px 0; }
+  #takes { max-height:220px; overflow:auto; font-size:13px; color:var(--label2); padding:12px 16px 12px 0; }
+  #takes .take + .take { margin-top:10px; }
+  #takes b { color:var(--label); font-weight:500; }
+  #takes .path { color:var(--label3); word-break:break-all; font-size:12px; }
 
   /* iPhone / narrow: single column */
   @media (max-width: 900px) {
@@ -110,7 +113,7 @@
         <button data-mode="1">False colour</button>
         <button data-mode="2">Cine EI</button>
       </div>
-      <button id="focusmap">Focus map</button>
+      <button id="focusmap" title="Green = sharp. Real camera: sharpness; simulator: depth of field">Focus map</button>
       <span class="spacer"></span>
       <button id="preroll" class="primary">Pre-roll</button>
       <button id="recbtn" class="danger">⏺ Record</button>
@@ -345,7 +348,12 @@ function renderTelemetry(t){
 }
 async function refreshTakes(){
   const takes = await (await fetch("/api/takes")).json();
-  $("takes").innerHTML = takes.length ? takes.map(t => `${t.uid} · ${t.duration_s?.toFixed(1)}s (pre-roll ${t.preroll_s?.toFixed(1)}s) · ${t.settings.shutter}`).join("<br>") : "none yet";
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  $("takes").innerHTML = takes.length ? takes.map(t => `<div class="take"><b>${esc(t.uid)}</b> · ${t.duration_s?.toFixed(1)}s` +
+      ` (pre-roll ${t.preroll_s?.toFixed(1)}s) · ${esc(t.settings.shutter)}` +
+      (t.settings.camera_card ? `<br>Full-quality clip: on the camera's SD card` : "") +
+      `<br><span class="path">Reference copy: ${esc(t.media_path)}</span></div>`).join("")
+    : "none yet. Record presses the camera's own record button: the clip goes to its SD card, and a low-res reference copy is kept here.";
 }
 function refreshScopes(){ for (const k of ["waveform","vectorscope","parade","histogram"]) $("sc-"+k).src = `/api/scope/${k}.png?ts=${Date.now()}`; }
 

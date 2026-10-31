@@ -22,7 +22,7 @@ from ..cinema.scopes import clipping_report, histogram, rgb_parade, to_image, ve
 from ..cinema.shutter import solve_shutter
 from ..cloud.store import Store
 from ..optics.af_guard import check_aperture, f_number_from_ptp
-from ..optics.focus_map import classify, overlay
+from ..optics.focus_map import classify, overlay, sharpness_map, sharpness_overlay
 from ..ptp.automation import PtpAFSink, apply_cine_ei, apply_shutter_angle
 from .sources import VideoSource, encode_jpeg, encode_png
 
@@ -67,7 +67,7 @@ class Rig:
         self.store = store or Store()
         self.detector = detector
         self.sim = sim_camera
-        self.media_dir = Path(media_dir)
+        self.media_dir = Path(media_dir).resolve()  # absolute, so the takes list can say where files are
         self.camera_name = camera_name
         self.settings = DeskSettings()
         self.preroll = PreRollBuffer(self.settings.preroll_s)
@@ -213,6 +213,9 @@ class Rig:
         if self.sim is not None:
             snap["iso"] = self.sim.state.iso
             snap["f_number"] = self.sim.state.f_number
+        # Record presses the body's own record button: the real clip is on the camera's card;
+        # media_path holds only the desk's low-res live-view reference copy.
+        snap["camera_card"] = self.driver is not None and self.sim is None
         return snap
 
     # --- views & scopes ----------------------------------------------------------------
@@ -228,11 +231,12 @@ class Rig:
             offset = self.cine_ei().monitor_offset_ev(self.settings.ei) if self.settings.ei else 0.0
             out = monitor_transform(curve, offset)(f)
         elif view == "focusmap":
-            if self.sim is None or self.source.last is None:
-                raise ValueError("focus map needs depth (simulator, or a depth model on hardware)")
-            st = self.sim.state
-            cls = classify(self.source.last.depth, self.sim.lens.focal_mm, st.f_number, self.sim.focus_distance_mm)
-            out = overlay(f, cls)
+            if self.sim is not None and getattr(self.source, "last", None) is not None:  # depth: front / in / behind
+                st = self.sim.state
+                cls = classify(self.source.last.depth, self.sim.lens.focal_mm, st.f_number, self.sim.focus_distance_mm)
+                out = overlay(f, cls)
+            else:  # real camera has no depth: show what's sharp
+                out = sharpness_overlay(f, sharpness_map(f))
         elif view == "normal":
             out = f
         else:

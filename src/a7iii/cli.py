@@ -263,6 +263,10 @@ def cmd_desk(a) -> int:
     print(f"A7III Control Desk on {' or '.join(urls)}  ({'simulated camera' if a.sim else 'hardware'})")
     if a.host == "0.0.0.0":
         print("on your phone, open that address in Safari, then Share -> Add to Home Screen")
+    if a.ptp:
+        from pathlib import Path
+
+        print(f"Record: full-quality clip on the camera's SD card; low-res reference copy in {Path(a.media).resolve()}")
     uvicorn.run(create_app(rig, loop_fps=a.fps), host=a.host, port=a.port, log_level="warning")
     return 0
 

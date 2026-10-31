@@ -152,3 +152,41 @@ def test_opening_the_desk_never_changes_a_real_cameras_exposure(tmp_path):
         assert body.writes == []  # startup only plans
         assert client.post("/api/settings", json={"fps": 25, "angle": 180}).status_code == 200
     assert [n for n, _ in body.writes] == ["shutter_speed", "iso"]  # an edit in the desk does push
+
+
+def test_focus_map_works_on_a_real_camera_without_depth(tmp_path):
+    import numpy as np
+
+    from a7iii.desk.rig import Rig
+    from a7iii.optics.focus_map import sharpness_map
+
+    rng = np.random.default_rng(0)
+    frame = np.full((256, 384, 3), 0.4)
+    frame[64:192, 128:256] = rng.random((128, 128, 1))  # crisp, high-detail patch = "in focus"
+    sharp = sharpness_map(frame)
+    assert sharp[64:192, 128:256].mean() > 0.9 and sharp[:, :96].mean() == 0
+    assert not sharpness_map(np.full((256, 384, 3), 0.4) + 0.002 * rng.random((256, 384, 1))).any()  # soft: nothing
+
+    rig = Rig(source=None, driver=None, media_dir=str(tmp_path / "takes"))  # no simulator, no depth
+    rig.last_frame = frame
+    out = rig.render_view("focusmap")  # used to raise "focus map needs depth"
+    assert out.shape == frame.shape and out[100, 190, 1] > out[100, 10, 1]  # sharp patch is greener
+
+
+def test_takes_say_the_real_clip_is_on_the_camera_card(tmp_path):
+    from a7iii.desk.rig import Rig
+
+    class Body:
+        def __init__(self):
+            self.pressed = []
+
+        def press(self, name, hold_s=0.05):
+            self.pressed.append(name)
+
+    body = Body()
+    rig = Rig(source=None, driver=body, media_dir=str(tmp_path / "takes"))
+    rig.start_take()
+    rec = rig.stop_take()
+    assert body.pressed == ["movie_record", "movie_record"]  # start + stop on the camera itself
+    assert rec["settings"]["camera_card"] is True
+    assert rec["media_path"].startswith(str(tmp_path))  # absolute reference-copy path
