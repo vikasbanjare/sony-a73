@@ -14,3 +14,20 @@ def test_cli_commands_run(capsys):
     assert main(["readout"]) == 0
     capsys.readouterr()
     assert main(["ei", "slog3", "12800"]) == 1
+
+
+def test_cli_match(tmp_path, capsys):
+    import numpy as np
+
+    from a7iii.color.transfer import encode
+
+    rng = np.random.default_rng(0)
+    target_lin = rng.uniform(0.03, 0.7, (24, 3))
+    source_lin = target_lin @ np.array([[1.1, -0.05, -0.05], [0.0, 0.95, 0.05], [0.02, -0.02, 1.0]]).T
+    np.savetxt(tmp_path / "a.csv", encode("hlg", source_lin), delimiter=",")
+    np.savetxt(tmp_path / "b.csv", encode("slog3", target_lin), delimiter=",")
+    out = tmp_path / "m.cube"
+    assert main(["match", "--source", str(tmp_path / "a.csv"), "--target", str(tmp_path / "b.csv"),
+                 "--size", "17", "--out", str(out)]) == 0
+    assert out.exists() and out.with_suffix(".dctl").exists()
+    assert "final mean" in capsys.readouterr().out

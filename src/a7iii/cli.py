@@ -85,6 +85,43 @@ def cmd_profiles(a) -> int:
     return 0
 
 
+def _load_patches(path: str):
+    import numpy as np
+
+    rows = np.loadtxt(path, delimiter=",", ndmin=2, comments="#")
+    if rows.shape[1] != 3:
+        raise ValueError(f"{path}: expected 3 columns (R,G,B signal values in 0..1)")
+    return rows
+
+
+def cmd_match(a) -> int:
+    from pathlib import Path
+
+    import numpy as np
+
+    from .color.chart_solver import solve_ccm
+    from .color.colorimetry import delta_e_2000, linear_rgb_to_lab
+    from .color.dctl import lut_dctl
+    from .color.lut import build_lut, write_cube
+    from .color.residual import fit_residual, match_transform
+    from .color.transfer import decode
+
+    src = decode(a.source_curve, _load_patches(a.source))
+    dst = decode(a.target_curve, _load_patches(a.target))
+    if src.shape != dst.shape:
+        raise ValueError("source and target must have the same number of patches")
+    ccm = solve_ccm(src, dst, degree=a.degree)
+    residual = None if a.no_residual else fit_residual(ccm.apply(src), dst)
+    final = residual(ccm.apply(src)) if residual else ccm.apply(src)
+    de = delta_e_2000(linear_rgb_to_lab(np.clip(final, 0, None)), linear_rgb_to_lab(dst))
+    out = Path(a.out)
+    write_cube(out, build_lut(match_transform(a.source_curve, a.target_curve, ccm, residual), a.size), title=out.stem)
+    out.with_suffix(".dctl").write_text(lut_dctl(out, out.stem))
+    print(f"CCM mean dE2000 {ccm.mean_delta_e:.2f}; final mean {de.mean():.2f}, max {de.max():.2f}")
+    print(f"wrote {out} and {out.with_suffix('.dctl')}")
+    return 0
+
+
 def cmd_readout(a) -> int:
     for mode, ms in READOUT_MS.items():
         print(f"{mode:14s} {ms:5.1f} ms")
@@ -136,6 +173,17 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("profiles", help="list or show picture-profile recipes")
     s.add_argument("name", nargs="?", choices=sorted(PICTURE_PROFILES))
     s.set_defaults(func=cmd_profiles)
+
+    s = sub.add_parser("match", help="chart-match two cameras into a .cube LUT + DCTL")
+    s.add_argument("--source", required=True, help="CSV of source patch R,G,B (signal 0..1)")
+    s.add_argument("--target", required=True, help="CSV of reference patch R,G,B (signal 0..1)")
+    s.add_argument("--source-curve", default="hlg", choices=["slog2", "slog3", "hlg", "rec709"])
+    s.add_argument("--target-curve", default="slog3", choices=["slog2", "slog3", "hlg", "rec709"])
+    s.add_argument("--degree", type=int, default=1, choices=[1, 2, 3])
+    s.add_argument("--size", type=int, default=65, help="LUT size (33 or 65)")
+    s.add_argument("--no-residual", action="store_true", help="skip the OKLab RBF stage")
+    s.add_argument("--out", default="a7iii_match.cube")
+    s.set_defaults(func=cmd_match)
 
     s = sub.add_parser("readout", help="rolling-shutter readout times")
     s.set_defaults(func=cmd_readout)
